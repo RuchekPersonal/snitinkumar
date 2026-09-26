@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* "Zari" theme tokens, sampled from the design PDF (RFD §4). */
+@theme {
+  --color-cream: #f8f1e7;
+  --color-surface: #ffffff;
+  --color-sand: #e4d5c0;
+  --color-line: #ece2d4;
+  --color-maroon: #6b1f2b;
+  --color-maroon-700: #571823;
+  --color-maroon-50: #f6e9ea;
+  --color-gold: #caa24b;
+  --color-gold-600: #a9853a;
+  --color-gold-50: #f7eed8;
+  --color-ink: #2b1b1c;
+  --color-muted: #6f5e57;
+  --color-whatsapp: #1f7a4d;
+  --color-chip: #e7ebde;
+  --color-chip-ink: #4a5a3a;
+
+  --font-serif: var(--font-cormorant), "Georgia", serif;
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(43 27 28 / 0.06);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-maroon-50);
+  color: var(--color-maroon);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+@utility eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Leaves room for the fixed mobile bottom nav. */
+@utility pb-safe-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  @media (width >= 64rem) {
+    padding-bottom: 0;
+  }
+}
