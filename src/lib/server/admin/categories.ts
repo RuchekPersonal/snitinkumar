@@ -162,3 +162,36 @@ export async function moveAttribute(table: AttributeTable, id: number, dir: -1 |
   await move(table, id, dir);
   refreshCatalog();
 }
+
+/**
+ * Creates a colour from the product form (or returns the existing one with the same name,
+ * ignoring case) so it can be selected straight away.
+ */
+export async function createColour(
+  nameRaw: string,
+  hex: string,
+): Promise<{ id: number; name: string; hex: string | null }> {
+  await requireAdmin();
+  const name = nameRaw.trim().replace(/\s+/g, " ");
+  if (!name || name.length > 30) throw new Error("Enter a colour name up to 30 characters");
+  if (!HEX_RE.test(hex)) throw new Error("Pick a shade");
+  const c = db();
+  const existing = must(await c.from("colours").select("id, name, hex").ilike("name", name).maybeSingle(), "colour");
+  if (existing) return existing as { id: number; name: string; hex: string | null };
+  const last = must(
+    await c.from("colours").select("sort_order").order("sort_order", { ascending: false }).limit(1),
+    "order",
+  ) as {
+    sort_order: number;
+  }[];
+  const created = must(
+    await c
+      .from("colours")
+      .insert({ name, hex: hex.toUpperCase(), sort_order: (last[0]?.sort_order ?? 0) + 1 })
+      .select("id, name, hex")
+      .single(),
+    "create colour",
+  );
+  refreshCatalog();
+  return created as { id: number; name: string; hex: string | null };
+}

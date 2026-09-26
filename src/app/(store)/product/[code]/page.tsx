@@ -9,6 +9,7 @@ import { Gallery } from "@/components/product/gallery";
 import { Rate } from "@/components/product/rate";
 import { ProductActions } from "@/components/product/product-actions";
 import { ProductGrid } from "@/components/product/product-card";
+import { ColourSwatches } from "@/components/product/colour-swatches";
 import { ReceiptIcon, ShieldIcon, TruckIcon } from "@/components/icons";
 import { pageMeta } from "@/lib/seo";
 
@@ -125,24 +126,9 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
             <p className="eyebrow text-muted">
               Available {product.availableColours.length === 1 ? "colour" : "colours"}
             </p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {product.availableColours.map((c) => (
-                <li
-                  key={c.name}
-                  className="flex h-11 items-center gap-2 rounded-full border border-line bg-surface pr-4 pl-1.5 text-[14px] font-medium"
-                >
-                  <span
-                    className="h-8 w-8 shrink-0 rounded-full border border-ink/10 shadow-inner"
-                    style={{ background: c.hex ?? "var(--color-sand)" }}
-                    aria-hidden
-                  />
-                  {c.name}
-                </li>
-              ))}
-            </ul>
-            {product.availableColours.length > 1 && (
-              <p className="mt-2 text-[13px] text-muted">Mention the colours you want in your enquiry note.</p>
-            )}
+            <div className="mt-2">
+              <ColourSwatches colours={product.availableColours} />
+            </div>
           </div>
 
           <div className="mt-6">

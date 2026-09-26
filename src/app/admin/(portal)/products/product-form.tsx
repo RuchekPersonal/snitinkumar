@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Lookups } from "@/lib/server/admin/products";
 import { saveProductAction, deleteImageAction, reorderImagesAction } from "@/app/admin/_actions/products";
+import { createColourAction } from "@/app/admin/_actions/categories";
+import { ColourPalette, type ColourDraft } from "@/components/admin/colour-palette";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
 import { sizesLabel } from "@/lib/format";
 
@@ -85,6 +87,11 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [photos, setPhotos] = useState<Photo[]>(images.map((i) => ({ kind: "saved", id: i.id })));
+  // Colours can be created from this form, so keep a local copy of the list.
+  const [colours, setColours] = useState(lookups.colours);
+  const [newColour, setNewColour] = useState<ColourDraft | null>(null);
+  const [colourError, setColourError] = useState<string | null>(null);
+  const [addingColour, setAddingColour] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,7 +116,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
     () => lookups.sizes.filter((s) => v.sizeIds.includes(s.id)).map((s) => s.label),
     [lookups.sizes, v.sizeIds],
   );
-  const previewColours = lookups.colours.filter((c) => String(c.id) === v.colourId || v.colourIds.includes(c.id));
+  const previewColours = colours.filter((c) => String(c.id) === v.colourId || v.colourIds.includes(c.id));
   const fabricName = lookups.fabrics.find((f) => String(f.id) === v.fabricId)?.name ?? "Fabric";
   const cover = photos[0];
 
@@ -224,7 +231,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
             <Field name="colourId" text="Primary colour" error={errors.colourId}>
               <select {...text("colourId")} className={input}>
                 <option value="">Choose…</option>
-                {lookups.colours.map((c) => (
+                {colours.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -246,7 +253,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
             <div className="sm:col-span-2">
               <p className={label}>Available colours</p>
               <div className="flex flex-wrap gap-2">
-                {lookups.colours.map((c) => {
+                {colours.map((c) => {
                   const primary = String(c.id) === v.colourId;
                   const on = primary || v.colourIds.includes(c.id);
                   return (
@@ -273,9 +280,55 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
                     </button>
                   );
                 })}
+                {!newColour && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setColourError(null);
+                      setNewColour({ name: "", hex: "#C0282D" });
+                    }}
+                    className="flex h-10 items-center gap-1.5 rounded-full border border-dashed border-maroon/60 px-3.5 text-[14px] font-semibold text-maroon hover:bg-maroon-50"
+                  >
+                    + Add colour
+                  </button>
+                )}
               </div>
+              {newColour && (
+                <div className="mt-3 rounded-lg border border-line bg-cream/50 p-4">
+                  <p className="mb-2 text-[13px] font-semibold">New colour — tap a shade or pick any other</p>
+                  <ColourPalette value={newColour} onChange={setNewColour} taken={colours.map((c) => c.name)} />
+                  {colourError && <p className="mt-2 text-[13px] font-medium text-maroon">{colourError}</p>}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={addingColour || !newColour.name.trim()}
+                      onClick={async () => {
+                        setAddingColour(true);
+                        setColourError(null);
+                        const res = await createColourAction(newColour.name, newColour.hex);
+                        setAddingColour(false);
+                        if (!res.ok) return setColourError(res.error);
+                        const c = res.colour;
+                        setColours((list) => (list.some((x) => x.id === c.id) ? list : [...list, c]));
+                        setV((s) => ({
+                          ...s,
+                          colourId: s.colourId || String(c.id),
+                          colourIds: s.colourIds.includes(c.id) ? s.colourIds : [...s.colourIds, c.id],
+                        }));
+                        setNewColour(null);
+                      }}
+                      className={btnPrimary}
+                    >
+                      {addingColour ? "Adding…" : "Add & select"}
+                    </button>
+                    <button type="button" onClick={() => setNewColour(null)} className={btnSecondary}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               <p className="mt-1.5 text-[12px] text-muted">
-                Shown on the product page. Manage colours and their swatch shades under Categories.
+                Shown on the product page as colour dots. New colours are saved for all products.
               </p>
             </div>
             <Field name="description" text="Description" className="sm:col-span-2" error={errors.description}>

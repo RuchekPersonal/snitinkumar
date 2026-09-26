@@ -8,6 +8,7 @@ import {
   setColourHexAction,
 } from "@/app/admin/_actions/categories";
 import { btnSecondary, input } from "@/components/admin/ui";
+import { ColourPalette } from "@/components/admin/colour-palette";
 
 interface Item {
   id: number;
@@ -19,7 +20,7 @@ interface Item {
 export function AttributeList({ table, items }: { table: "fabrics" | "colours" | "sizes"; items: Item[] }) {
   const [pending, start] = useTransition();
   const [value, setValue] = useState("");
-  const [hex, setHex] = useState("#6B1F2B");
+  const [hex, setHex] = useState("#C0282D");
   const isColour = table === "colours";
   // Colour pickers fire on every drag step; save once the shade settles.
   const hexTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -91,7 +92,7 @@ export function AttributeList({ table, items }: { table: "fabrics" | "colours" |
         ))}
       </ul>
       <form
-        className="mt-3 flex gap-2"
+        className={isColour ? "mt-4 space-y-2 border-t border-line pt-4" : "mt-3 flex gap-2"}
         onSubmit={(e) => {
           e.preventDefault();
           run(async () => {
@@ -101,25 +102,34 @@ export function AttributeList({ table, items }: { table: "fabrics" | "colours" |
           });
         }}
       >
-        {isColour && (
-          <input
-            type="color"
-            value={hex}
-            onChange={(e) => setHex(e.target.value)}
-            className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-line bg-surface p-1"
-            aria-label="Swatch colour for new colour"
-          />
+        {isColour ? (
+          <>
+            <ColourPalette
+              value={{ name: value, hex }}
+              onChange={(d) => {
+                setValue(d.name);
+                setHex(d.hex);
+              }}
+              taken={items.map((it) => it.text)}
+            />
+            <button disabled={pending || !value.trim()} className={btnSecondary}>
+              + Add colour
+            </button>
+          </>
+        ) : (
+          <>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`Add ${table === "sizes" ? "size" : table.slice(0, -1)}`}
+              className={input}
+              maxLength={30}
+            />
+            <button disabled={pending || !value.trim()} className={btnSecondary}>
+              + Add
+            </button>
+          </>
         )}
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={`Add ${table === "sizes" ? "size" : table.slice(0, -1)}`}
-          className={input}
-          maxLength={30}
-        />
-        <button disabled={pending || !value.trim()} className={btnSecondary}>
-          + Add
-        </button>
       </form>
       {error && <p className="mt-2 text-[13px] font-medium text-maroon">{error}</p>}
     </div>

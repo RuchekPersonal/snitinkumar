@@ -10,6 +10,7 @@ import {
   moveCategory,
   saveCategory,
   setColourHex,
+  createColour,
 } from "@/lib/server/admin/categories";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -51,4 +52,15 @@ export async function deleteAttributeAction(table: string, id: number): Promise<
 
 export async function moveAttributeAction(table: string, id: number, dir: number): Promise<Result> {
   return run(() => moveAttribute(Table.parse(table), z.number().int().parse(id), Dir.parse(dir)));
+}
+
+export async function createColourAction(
+  name: string,
+  hex: string,
+): Promise<{ ok: true; colour: { id: number; name: string; hex: string | null } } | { ok: false; error: string }> {
+  try {
+    return { ok: true, colour: await createColour(String(name), String(hex)) };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 }
