@@ -18,34 +18,41 @@ function secret(): string {
   return DEV_SECRET;
 }
 
-function sign(data: string): string {
-  return createHmac("sha256", secret()).update(data).digest("base64url");
+// `scope` keys the HMAC per token type, so a retailer token can never pass as an admin one.
+function sign(scope: string, data: string): string {
+  return createHmac("sha256", `${scope}:${secret()}`).update(data).digest("base64url");
 }
 
-interface Payload extends Viewer {
-  exp: number;
+/** Signed, expiring token: base64url(JSON payload) + "." + HMAC. */
+export function signToken(scope: string, payload: object, maxAgeS: number): string {
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + maxAgeS })).toString(
+    "base64url",
+  );
+  return `${body}.${sign(scope, body)}`;
 }
 
-export function encodeSession(viewer: Viewer): string {
-  const payload: Payload = { ...viewer, exp: Math.floor(Date.now() / 1000) + MAX_AGE_S };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${body}.${sign(body)}`;
-}
-
-function decodeSession(token: string | undefined): Viewer | null {
+export function verifyToken<T>(scope: string, token: string | undefined): T | null {
   if (!token) return null;
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
-  const expected = Buffer.from(sign(body));
+  const expected = Buffer.from(sign(scope, body));
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   try {
-    const p = JSON.parse(Buffer.from(body, "base64url").toString()) as Payload;
-    if (p.exp < Date.now() / 1000) return null;
-    return { role: p.role, name: p.name, shopName: p.shopName, city: p.city, phone: p.phone };
+    const p = JSON.parse(Buffer.from(body, "base64url").toString()) as T & { exp: number };
+    return p.exp < Date.now() / 1000 ? null : p;
   } catch {
     return null;
   }
+}
+
+export function encodeSession(viewer: Viewer): string {
+  return signToken("retailer", viewer, MAX_AGE_S);
+}
+
+function decodeSession(token: string | undefined): Viewer | null {
+  const p = verifyToken<Viewer>("retailer", token);
+  return p && { role: p.role, name: p.name, shopName: p.shopName, city: p.city, phone: p.phone };
 }
 
 export const sessionCookieOptions = {

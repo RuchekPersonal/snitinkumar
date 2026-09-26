@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { site, siteUrl } from "@/lib/site";
-import { demoRolesEnabled, getViewer } from "@/lib/server/session";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { BottomNav } from "@/components/layout/bottom-nav";
-import { DemoRoleBar } from "@/components/layout/demo-role-bar";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -63,23 +57,10 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const viewer = await getViewer();
-  const accountHref = viewer.role === "guest" ? "/login" : "/account";
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en-IN" className={`${cormorant.variable} ${jakarta.variable}`}>
-      <body className="flex min-h-dvh flex-col pb-safe-nav">
-        {demoRolesEnabled() && (
-          <Suspense>
-            <DemoRoleBar role={viewer.role} />
-          </Suspense>
-        )}
-        <Header viewer={viewer} />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <BottomNav accountHref={accountHref} />
-      </body>
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

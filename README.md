@@ -42,6 +42,23 @@ retailer to check that rates are only shown to approved retailers.
 | `src/lib/seo.ts` | Page metadata incl. Open Graph for WhatsApp previews |
 | `public/placeholders/` | Static design placeholders (hero, shop floor) |
 
+## Admin portal
+
+`/admin` (Dashboard, Products, Categories, Enquiries, Customers). Create the first staff
+login from your terminal, so the password never leaves your machine:
+
+```bash
+npm run db:create-admin you@example.com "Your Name"      # prompts for the password (hidden)
+```
+
+- Staff passwords are stored only as Argon2id hashes (the database rejects anything else).
+- Separate `sn_admin` cookie: signed, HttpOnly, SameSite=Strict, 8 h. Changing a password
+  signs out every other session; 5 wrong attempts lock the account for 15 minutes.
+- Every admin page, Server Action and `/api/admin/*` route re-checks the session against
+  the `admins` table; `src/proxy.ts` only does the fast redirect to the login page.
+- Product photos upload one per request (resized to ≤1600 px in the browser first) and are
+  stored as base64 variants. Saving a product refreshes the storefront cache immediately.
+
 ## Environment
 
 See `.env.example`. Production requires `SESSION_SECRET`.
