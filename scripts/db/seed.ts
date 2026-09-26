@@ -127,6 +127,16 @@ async function main() {
       "product_sizes",
     );
 
+    check(await db.from("product_colours").delete().eq("product_id", row.id), "product_colours clear");
+    check(
+      await db
+        .from("product_colours")
+        .insert(
+          [p.colour, ...(p.extraColours ?? [])].map((name) => ({ product_id: row.id, colour_id: colourIds.get(name) })),
+        ),
+      "product_colours",
+    );
+
     check(await db.from("product_images").delete().eq("product_id", row.id), "product_images clear");
     for (let i = 0; i < p.imageCount; i++) {
       const png = await sharp(Buffer.from(placeholderSvg(p.colour, i + 1)))

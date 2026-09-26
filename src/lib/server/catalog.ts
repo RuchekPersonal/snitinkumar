@@ -36,6 +36,7 @@ interface ProductRow {
   createdAt: string;
   updatedAt: string;
   imageIds: string[];
+  colours: string[]; // available colourways, primary first
 }
 
 interface CategoryRow {
@@ -51,6 +52,7 @@ interface Snapshot {
   categories: CategoryRow[];
   fabrics: string[];
   colours: string[];
+  colourHex: Record<string, string | null>;
   sizes: string[];
 }
 
@@ -60,7 +62,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
     client
       .from("product_catalog")
       .select(
-        "id, code, name, description, work, length_in, set_includes, wash_care, rate_paise, moq, stock_pcs, is_trending, new_until, popularity, created_at, updated_at, category_slug, fabric, colour, sizes, image_ids",
+        "id, code, name, description, work, length_in, set_includes, wash_care, rate_paise, moq, stock_pcs, is_trending, new_until, popularity, created_at, updated_at, category_slug, fabric, colour, sizes, image_ids, colours",
       )
       .eq("is_visible", true),
     client
@@ -69,7 +71,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
       .eq("is_visible", true)
       .order("sort_order"),
     client.from("fabrics").select("name").order("sort_order"),
-    client.from("colours").select("name").order("sort_order"),
+    client.from("colours").select("name, hex").order("sort_order"),
     client.from("sizes").select("label").order("sort_order"),
   ]);
   for (const r of [products, categories, fabrics, colours, sizes]) {
@@ -99,15 +101,17 @@ async function fetchSnapshot(): Promise<Snapshot> {
       createdAt: p.created_at,
       updatedAt: p.updated_at,
       imageIds: p.image_ids,
+      colours: p.colours?.length ? p.colours : [p.colour],
     })),
     categories: categories.data!,
     fabrics: fabrics.data!.map((f) => f.name),
     colours: colours.data!.map((c) => c.name),
+    colourHex: Object.fromEntries(colours.data!.map((c) => [c.name, c.hex])),
     sizes: sizes.data!.map((s) => s.label),
   };
 }
 
-const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v1"], {
+const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v2"], {
   revalidate: 300,
   tags: [CATALOG_TAG],
 });
@@ -159,7 +163,7 @@ export async function listFacets() {
   const products = live(snap);
   return {
     fabrics: snap.fabrics.filter((f) => products.some((p) => p.fabric === f)),
-    colours: snap.colours.filter((c) => products.some((p) => p.colour === c)),
+    colours: snap.colours.filter((c) => products.some((p) => p.colours.includes(c))),
     sizes: snap.sizes,
     totalDesigns: products.length,
     newCount: products.filter(isNew).length,
@@ -173,7 +177,7 @@ export async function listProducts(filters: CatalogFilters, viewer: Viewer): Pro
 
   if (filters.category) rows = rows.filter((p) => p.categorySlug === filters.category);
   if (filters.fabric) rows = rows.filter((p) => p.fabric === filters.fabric);
-  if (filters.colour) rows = rows.filter((p) => p.colour === filters.colour);
+  if (filters.colour) rows = rows.filter((p) => p.colours.includes(filters.colour!));
   if (filters.size) rows = rows.filter((p) => p.sizes.includes(filters.size!));
   if (filters.newOnly) rows = rows.filter(isNew);
   // Price filter/sort only for viewers allowed to see prices, otherwise it would leak rates.
@@ -181,7 +185,7 @@ export async function listProducts(filters: CatalogFilters, viewer: Viewer): Pro
   if (filters.q) {
     const terms = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
     rows = rows.filter((p) => {
-      const hay = `${p.code} ${p.name} ${p.fabric} ${p.colour} ${p.categorySlug} ${p.work}`.toLowerCase();
+      const hay = `${p.code} ${p.name} ${p.fabric} ${p.colours.join(" ")} ${p.categorySlug} ${p.work}`.toLowerCase();
       return terms.every((t) => hay.includes(t));
     });
   }
@@ -222,6 +226,7 @@ export async function getProduct(code: string, viewer: Viewer): Promise<ProductD
     setIncludes: p.setIncludes,
     washCare: p.washCare,
     imageIds: p.imageIds,
+    availableColours: p.colours.map((name) => ({ name, hex: snap.colourHex[name] ?? null })),
   };
 }
 

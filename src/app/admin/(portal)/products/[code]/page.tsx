@@ -51,6 +51,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
           moq: String(product.moq),
           stock: String(product.stock_pcs),
           sizeIds: product.sizeIds,
+          colourIds: product.colourIds,
           markNew: !!product.new_until && product.new_until >= istDate(),
           trending: product.is_trending,
           visible: product.is_visible,

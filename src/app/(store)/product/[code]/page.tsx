@@ -39,7 +39,6 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
     ["Work", product.work],
     ["Length", product.lengthIn ? `${product.lengthIn} in` : ""],
     ["Set includes", product.setIncludes],
-    ["Colour", product.colour],
     ["Wash", product.washCare],
   ].filter(([, v]) => v);
 
@@ -50,7 +49,7 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
     sku: product.code,
     description: product.description,
     brand: { "@type": "Brand", name: site.name },
-    color: product.colour,
+    color: product.availableColours.map((c) => c.name).join(", "),
     material: product.fabric,
     category: product.categoryName,
     ...(product.coverImageId && { image: new URL(`/api/img/${product.coverImageId}/card.webp`, siteUrl()).toString() }),
@@ -121,6 +120,30 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
               </div>
             ))}
           </dl>
+
+          <div className="mt-6">
+            <p className="eyebrow text-muted">
+              Available {product.availableColours.length === 1 ? "colour" : "colours"}
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {product.availableColours.map((c) => (
+                <li
+                  key={c.name}
+                  className="flex h-11 items-center gap-2 rounded-full border border-line bg-surface pr-4 pl-1.5 text-[14px] font-medium"
+                >
+                  <span
+                    className="h-8 w-8 shrink-0 rounded-full border border-ink/10 shadow-inner"
+                    style={{ background: c.hex ?? "var(--color-sand)" }}
+                    aria-hidden
+                  />
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+            {product.availableColours.length > 1 && (
+              <p className="mt-2 text-[13px] text-muted">Mention the colours you want in your enquiry note.</p>
+            )}
+          </div>
 
           <div className="mt-6">
             <p className="eyebrow text-muted">Available sizes (per set)</p>

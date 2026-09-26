@@ -9,6 +9,7 @@ import {
   moveAttribute,
   moveCategory,
   saveCategory,
+  setColourHex,
 } from "@/lib/server/admin/categories";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -36,8 +37,12 @@ export async function moveCategoryAction(id: number, dir: number): Promise<Resul
   return run(() => moveCategory(z.number().int().parse(id), Dir.parse(dir)));
 }
 
-export async function addAttributeAction(table: string, value: string): Promise<Result> {
-  return run(() => addAttribute(Table.parse(table), String(value)));
+export async function addAttributeAction(table: string, value: string, hex?: string): Promise<Result> {
+  return run(() => addAttribute(Table.parse(table), String(value), hex ? String(hex) : undefined));
+}
+
+export async function setColourHexAction(id: number, hex: string): Promise<Result> {
+  return run(() => setColourHex(z.number().int().parse(id), String(hex)));
 }
 
 export async function deleteAttributeAction(table: string, id: number): Promise<Result> {

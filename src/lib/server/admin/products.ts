@@ -28,7 +28,7 @@ export interface AdminProductRow {
 export interface Lookups {
   categories: { id: number; slug: string; name: string }[];
   fabrics: { id: number; name: string }[];
-  colours: { id: number; name: string }[];
+  colours: { id: number; name: string; hex: string | null }[];
   sizes: { id: number; label: string }[];
 }
 
@@ -38,7 +38,7 @@ export async function getLookups(): Promise<Lookups> {
   const [categories, fabrics, colours, sizes] = await Promise.all([
     c.from("categories").select("id, slug, name").order("sort_order"),
     c.from("fabrics").select("id, name").order("sort_order"),
-    c.from("colours").select("id, name").order("sort_order"),
+    c.from("colours").select("id, name, hex").order("sort_order"),
     c.from("sizes").select("id, label").order("sort_order"),
   ]);
   return {
@@ -114,7 +114,7 @@ export async function getAdminProduct(code: string) {
   const row = must(
     await db()
       .from("products")
-      .select("*, product_sizes(size_id), product_images(id, position, alt)")
+      .select("*, product_sizes(size_id), product_colours(colour_id), product_images(id, position, alt)")
       .eq("code", code.toUpperCase())
       .maybeSingle(),
     "product",
@@ -123,6 +123,7 @@ export async function getAdminProduct(code: string) {
   return {
     ...row,
     sizeIds: (row.product_sizes as { size_id: number }[]).map((s) => s.size_id),
+    colourIds: (row.product_colours as { colour_id: number }[]).map((c) => c.colour_id),
     images: (row.product_images as { id: string; position: number; alt: string }[]).sort(
       (a, b) => a.position - b.position,
     ),
@@ -161,6 +162,8 @@ export const ProductInput = z.object({
   moq: z.coerce.number().int().min(1).max(1000),
   stock: z.coerce.number().int().min(0).max(1_000_000),
   sizeIds: z.array(z.coerce.number().int()).min(1, "Pick at least one size"),
+  /** Available colourways. The primary colour is always added. Omitted = keep existing (CSV without the column). */
+  colourIds: z.array(z.coerce.number().int()).max(30).optional(),
   markNew: z.boolean(),
   trending: z.boolean(),
   visible: z.boolean(),
@@ -210,6 +213,18 @@ export async function saveProduct(input: ProductInput, id?: string): Promise<{ i
   const saved = id
     ? must(await c.from("products").update(row).eq("id", id).select("id, code").single(), "update product")
     : must(await c.from("products").insert(row).select("id, code").single(), "insert product");
+
+  if (input.colourIds) {
+    must(await c.from("product_colours").delete().eq("product_id", saved.id), "clear colours");
+  }
+  const colourIds = [...new Set([input.colourId, ...(input.colourIds ?? [])])];
+  must(
+    await c.from("product_colours").upsert(
+      colourIds.map((colour_id) => ({ product_id: saved.id, colour_id })),
+      { onConflict: "product_id,colour_id", ignoreDuplicates: true },
+    ),
+    "colours",
+  );
 
   must(await c.from("product_sizes").delete().eq("product_id", saved.id), "clear sizes");
   must(
@@ -299,6 +314,7 @@ export const CSV_COLUMNS = [
   "category",
   "fabric",
   "colour",
+  "colours",
   "rate",
   "mrp",
   "moq",
@@ -320,7 +336,7 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
     await db()
       .from("products")
       .select(
-        "code, name, rate_paise, mrp_paise, moq, stock_pcs, is_visible, is_trending, new_until, work, length_in, set_includes, wash_care, description, categories(slug), fabrics(name), colours(name), product_sizes(sizes(label, sort_order))",
+        "code, name, rate_paise, mrp_paise, moq, stock_pcs, is_visible, is_trending, new_until, work, length_in, set_includes, wash_care, description, categories(slug), fabrics(name), colours!products_colour_id_fkey(name), product_colours(colours(name, sort_order)), product_sizes(sizes(label, sort_order))",
       )
       .order("code"),
     "export",
@@ -339,6 +355,11 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
         (r.categories as { slug: string }).slug,
         (r.fabrics as { name: string }).name,
         (r.colours as { name: string }).name,
+        (r.product_colours as { colours: { name: string; sort_order: number } }[])
+          .map((c) => c.colours)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((c) => c.name)
+          .join("|"),
         (r.rate_paise as number) / 100,
         r.mrp_paise === null ? "" : (r.mrp_paise as number) / 100,
         r.moq as number,
@@ -403,6 +424,20 @@ export async function importProductRecords(records: Record<string, string>[]): P
       const col = colour.get((r.colour ?? "").trim().toLowerCase());
       if (!col) throw new Error(`unknown colour "${r.colour}"`);
 
+      // Optional "colours" column: names separated by | (e.g. Maroon|Navy Blue). Blank or missing keeps existing.
+      const colourIds =
+        r.colours === undefined || r.colours.trim() === ""
+          ? undefined
+          : r.colours
+              .split("|")
+              .map((n) => n.trim())
+              .filter(Boolean)
+              .map((n) => {
+                const id = colour.get(n.toLowerCase());
+                if (!id) throw new Error(`unknown colour "${n}"`);
+                return id;
+              });
+
       const current = existing.get(code);
       const parsed = ProductInput.safeParse({
         code,
@@ -420,6 +455,7 @@ export async function importProductRecords(records: Record<string, string>[]): P
         moq: r.moq || 3,
         stock: r.stock || 0,
         sizeIds,
+        colourIds,
         markNew: !!(r.new_until && r.new_until >= istDate()) || (!current && !r.new_until),
         trending: yes(r.trending),
         visible: yes(r.visible),

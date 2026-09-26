@@ -1,7 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { addAttributeAction, deleteAttributeAction, moveAttributeAction } from "@/app/admin/_actions/categories";
+import { useRef, useState, useTransition } from "react";
+import {
+  addAttributeAction,
+  deleteAttributeAction,
+  moveAttributeAction,
+  setColourHexAction,
+} from "@/app/admin/_actions/categories";
 import { btnSecondary, input } from "@/components/admin/ui";
 
 interface Item {
@@ -14,6 +19,17 @@ interface Item {
 export function AttributeList({ table, items }: { table: "fabrics" | "colours" | "sizes"; items: Item[] }) {
   const [pending, start] = useTransition();
   const [value, setValue] = useState("");
+  const [hex, setHex] = useState("#6B1F2B");
+  const isColour = table === "colours";
+  // Colour pickers fire on every drag step; save once the shade settles.
+  const hexTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const saveHex = (id: number, next: string) => {
+    clearTimeout(hexTimers.current.get(id));
+    hexTimers.current.set(
+      id,
+      setTimeout(() => run(() => setColourHexAction(id, next)), 600),
+    );
+  };
   const [error, setError] = useState<string | null>(null);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
@@ -36,8 +52,20 @@ export function AttributeList({ table, items }: { table: "fabrics" | "colours" |
             >
               ‹
             </button>
-            {it.hex && (
-              <span className="mr-1.5 h-3 w-3 rounded-full border border-line" style={{ background: it.hex }} />
+            {isColour && (
+              <label
+                className="relative mr-1.5 h-4 w-4 cursor-pointer rounded-full border border-ink/20"
+                style={{ background: it.hex ?? "var(--color-sand)" }}
+                title={`Change swatch for ${it.text}`}
+              >
+                <input
+                  type="color"
+                  defaultValue={it.hex ?? "#E4D5C0"}
+                  onChange={(e) => saveHex(it.id, e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label={`Swatch colour for ${it.text}`}
+                />
+              </label>
             )}
             <span className="font-medium">{it.text}</span>
             <span className="ml-1 text-muted">· {it.uses}</span>
@@ -67,12 +95,21 @@ export function AttributeList({ table, items }: { table: "fabrics" | "colours" |
         onSubmit={(e) => {
           e.preventDefault();
           run(async () => {
-            const res = await addAttributeAction(table, value);
+            const res = await addAttributeAction(table, value, isColour ? hex : undefined);
             if (res.ok) setValue("");
             return res;
           });
         }}
       >
+        {isColour && (
+          <input
+            type="color"
+            value={hex}
+            onChange={(e) => setHex(e.target.value)}
+            className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-line bg-surface p-1"
+            aria-label="Swatch colour for new colour"
+          />
+        )}
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}

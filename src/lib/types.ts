@@ -43,6 +43,8 @@ export interface ProductDetail extends ProductCard {
   setIncludes: string;
   washCare: string;
   imageIds: string[];
+  /** All colourways this design is available in (primary first). */
+  availableColours: { name: string; hex: string | null }[];
 }
 
 export interface CatalogFilters {

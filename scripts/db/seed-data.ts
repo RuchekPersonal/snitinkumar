@@ -23,6 +23,7 @@ export interface ProductRow {
   popularity: number; // pcs enquired in last 30 d
   createdAt: string;
   imageCount: number;
+  extraColours?: string[]; // other colourways besides the primary colour
 }
 
 export interface CategoryRow {
@@ -118,6 +119,7 @@ export const products: ProductRow[] = [
     popularity: 186,
     createdAt: d(-4),
     imageCount: 2,
+    extraColours: ["Bottle Green", "Navy Blue"],
   },
   {
     code: "SN-102",
@@ -238,6 +240,7 @@ export const products: ProductRow[] = [
     popularity: 142,
     createdAt: d(-45),
     imageCount: 1,
+    extraColours: ["Navy Blue", "Maroon"],
   },
   {
     code: "SN-107",
@@ -356,6 +359,7 @@ export const products: ProductRow[] = [
     popularity: 88,
     createdAt: d(-35),
     imageCount: 1,
+    extraColours: ["Black", "Teal", "Pink"],
   },
   {
     code: "SN-112",

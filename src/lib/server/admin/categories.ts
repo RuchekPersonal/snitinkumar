@@ -4,6 +4,16 @@ import { db } from "../db";
 import { requireAdmin } from "../admin-auth";
 import { must, refreshCatalog } from "./util";
 
+const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+
+/** Swatch shade shown next to the colour name in the admin and on product pages. */
+export async function setColourHex(id: number, hex: string) {
+  await requireAdmin();
+  if (!HEX_RE.test(hex)) throw new Error("Pick a valid colour");
+  must(await db().from("colours").update({ hex: hex.toUpperCase() }).eq("id", id), "colour hex");
+  refreshCatalog();
+}
+
 export type AttributeTable = "fabrics" | "colours" | "sizes";
 const ATTR_LABEL: Record<AttributeTable, "name" | "label"> = { fabrics: "name", colours: "name", sizes: "label" };
 
@@ -118,7 +128,7 @@ export async function moveCategory(id: number, dir: -1 | 1) {
   refreshCatalog();
 }
 
-export async function addAttribute(table: AttributeTable, value: string) {
+export async function addAttribute(table: AttributeTable, value: string, hex?: string) {
   await requireAdmin();
   const v = value.trim();
   if (!v || v.length > 30) throw new Error("Enter a name up to 30 characters");
@@ -132,6 +142,7 @@ export async function addAttribute(table: AttributeTable, value: string) {
   const { error } = await c.from(table).insert({
     [ATTR_LABEL[table]]: table === "sizes" ? v.toUpperCase() : v,
     sort_order: (last[0]?.sort_order ?? 0) + 1,
+    ...(table === "colours" && hex && HEX_RE.test(hex) ? { hex: hex.toUpperCase() } : {}),
   });
   if (error?.code === "23505") throw new Error(`"${v}" already exists`);
   if (error) throw new Error(error.message);

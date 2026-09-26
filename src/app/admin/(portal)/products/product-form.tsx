@@ -25,6 +25,7 @@ export interface ProductFormValues {
   moq: string;
   stock: string;
   sizeIds: number[];
+  colourIds: number[];
   markNew: boolean;
   trending: boolean;
   visible: boolean;
@@ -108,6 +109,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
     () => lookups.sizes.filter((s) => v.sizeIds.includes(s.id)).map((s) => s.label),
     [lookups.sizes, v.sizeIds],
   );
+  const previewColours = lookups.colours.filter((c) => String(c.id) === v.colourId || v.colourIds.includes(c.id));
   const fabricName = lookups.fabrics.find((f) => String(f.id) === v.fabricId)?.name ?? "Fabric";
   const cover = photos[0];
 
@@ -241,6 +243,41 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
             <Field name="washCare" text="Wash care">
               <input {...text("washCare")} className={input} />
             </Field>
+            <div className="sm:col-span-2">
+              <p className={label}>Available colours</p>
+              <div className="flex flex-wrap gap-2">
+                {lookups.colours.map((c) => {
+                  const primary = String(c.id) === v.colourId;
+                  const on = primary || v.colourIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={primary}
+                      title={primary ? "Primary colour is always available" : undefined}
+                      onClick={() =>
+                        set("colourIds", on ? v.colourIds.filter((x) => x !== c.id) : [...v.colourIds, c.id])
+                      }
+                      className={`flex h-10 items-center gap-2 rounded-full border pr-3.5 pl-1.5 text-[14px] ${
+                        on ? "border-maroon bg-maroon-50 font-semibold text-maroon" : "border-line bg-surface"
+                      }`}
+                    >
+                      <span
+                        className="h-7 w-7 rounded-full border border-ink/10"
+                        style={{ background: c.hex ?? "var(--color-sand)" }}
+                        aria-hidden
+                      />
+                      {c.name}
+                      {primary && <span className="text-[11px] font-normal">(primary)</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Shown on the product page. Manage colours and their swatch shades under Categories.
+              </p>
+            </div>
             <Field name="description" text="Description" className="sm:col-span-2" error={errors.description}>
               <textarea {...text("description")} rows={3} className={`${input} h-auto py-2`} />
             </Field>
@@ -403,6 +440,18 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
               </p>
               <p className="mt-1 line-clamp-2 text-[14px] font-semibold">{v.name || "[Design name appears here]"}</p>
               {sizeLabels.length > 0 && <p className="text-[12px] text-muted">Sizes {sizesLabel(sizeLabels)}</p>}
+              {previewColours.length > 1 && (
+                <p className="mt-1 flex items-center gap-1" aria-label="Available colours">
+                  {previewColours.map((c) => (
+                    <span
+                      key={c.id}
+                      title={c.name}
+                      className="h-3.5 w-3.5 rounded-full border border-ink/10"
+                      style={{ background: c.hex ?? "var(--color-sand)" }}
+                    />
+                  ))}
+                </p>
+              )}
               <p className="mt-1 flex items-center justify-between">
                 <span>
                   <b>{v.rate ? `₹${Number(v.rate).toLocaleString("en-IN")}` : "₹—"}</b>

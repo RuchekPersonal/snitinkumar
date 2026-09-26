@@ -41,6 +41,7 @@ export default async function NewProductPage() {
           moq: "3",
           stock: "0",
           sizeIds: [],
+          colourIds: [],
           markNew: true,
           trending: false,
           visible: false,
