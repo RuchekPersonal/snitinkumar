@@ -59,6 +59,17 @@ npm run db:create-admin you@example.com "Your Name"      # prompts for the passw
 - Product photos upload one per request (resized to ≤1600 px in the browser first) and are
   stored as base64 variants. Saving a product refreshes the storefront cache immediately.
 
+## Retailer login (phone OTP)
+
+Uses Firebase Phone Auth from the existing `vendorapp-1f93d` project (LocalStore app). The
+browser gets an OTP via Firebase; `/api/auth/firebase` verifies the ID token with Google's
+public keys (no service account needed) and sets our own `sn_session` cookie that stores only
+the retailer id — status (pending / approved / blocked) is read from the database on every
+request, so approving or blocking in the admin takes effect immediately.
+
+Firebase Console → Authentication → Settings → **Authorized domains** must list every domain
+the site runs on (localhost is already there; add the Vercel/custom domain).
+
 ## Environment
 
 See `.env.example`. Production requires `SESSION_SECRET`.

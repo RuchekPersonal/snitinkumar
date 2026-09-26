@@ -5,6 +5,9 @@ import Link from "next/link";
 import { CheckIcon, WhatsAppIcon } from "@/components/icons";
 import { waLink } from "@/lib/whatsapp";
 import { site } from "@/lib/site";
+import { redirect } from "next/navigation";
+import { getViewer } from "@/lib/server/session";
+import { OtpLogin } from "./otp-login";
 
 export const metadata: Metadata = pageMeta({
   title: "Retailer Login & Registration",
@@ -14,7 +17,10 @@ export const metadata: Metadata = pageMeta({
 
 const registerText = `Hello ${site.name}, I want to register my shop for wholesale rates.\nShop name: \nOwner name: \nCity: \nGSTIN (optional): `;
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const viewer = await getViewer();
+  if (viewer.retailerId) redirect("/account");
+  const register = (await searchParams).tab === "register";
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 lg:px-6 lg:pt-12">
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
@@ -46,54 +52,52 @@ export default function LoginPage() {
         </section>
 
         <section className="rounded-lg border border-line bg-surface p-5 sm:p-8" aria-labelledby="login-h">
-          <div className="grid grid-cols-2 rounded-md bg-cream p-1 text-[14px] font-semibold">
-            <span className="rounded bg-surface py-2.5 text-center shadow-card">Log in</span>
-            <span className="py-2.5 text-center text-muted">Register shop</span>
-          </div>
+          <nav
+            className="grid grid-cols-2 rounded-md bg-cream p-1 text-[14px] font-semibold"
+            aria-label="Log in or register"
+          >
+            <Link
+              href="/login"
+              replace
+              aria-current={!register ? "page" : undefined}
+              className={`rounded py-2.5 text-center ${!register ? "bg-surface shadow-card" : "text-muted"}`}
+            >
+              Log in
+            </Link>
+            <Link
+              href="/login?tab=register"
+              replace
+              aria-current={register ? "page" : undefined}
+              className={`rounded py-2.5 text-center ${register ? "bg-surface shadow-card" : "text-muted"}`}
+            >
+              Register shop
+            </Link>
+          </nav>
           <h2 id="login-h" className="mt-6 font-serif text-2xl font-semibold">
-            Welcome back
+            {register ? "Register your shop" : "Welcome back"}
           </h2>
 
-          <form className="mt-5 space-y-4" aria-describedby="login-soon">
-            <label className="block">
-              <span className="eyebrow text-muted">Mobile number</span>
-              <div className="mt-2 flex h-12 overflow-hidden rounded-md border border-line bg-cream/40">
-                <span className="grid place-items-center border-r border-line px-3 text-[15px] font-medium">+91</span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  placeholder="98765 43210"
-                  disabled
-                  className="flex-1 bg-transparent px-3 text-[16px]"
-                />
-              </div>
-            </label>
-            <button
-              type="button"
-              disabled
-              className="h-12 w-full rounded-md bg-maroon font-semibold text-white opacity-60"
-            >
-              Send OTP
-            </button>
-          </form>
+          <OtpLogin key={register ? "register" : "login"} mode={register ? "register" : "login"} />
 
-          <p id="login-soon" className="mt-5 rounded-md bg-gold-50 p-4 text-[14px] leading-relaxed">
-            <b>OTP login is being set up.</b> Until then, register your shop on WhatsApp and we&apos;ll share rates
-            directly.
-          </p>
+          <div className="my-6 flex items-center gap-3 text-[13px] text-muted">
+            <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+          </div>
           <a
             href={waLink(registerText)}
-            className="mt-4 flex h-12 items-center justify-center gap-2 rounded-md bg-whatsapp font-semibold text-white"
+            className="flex h-12 items-center justify-center gap-2 rounded-md border border-whatsapp font-semibold text-whatsapp"
           >
-            <WhatsAppIcon /> Register on WhatsApp
+            <WhatsAppIcon /> Register on WhatsApp instead
           </a>
           <p className="mt-6 text-[13px] text-muted">
             New retailer? Registration needs shop name, city, GSTIN (optional) and mobile. Approved the same day.
           </p>
-          <p className="mt-2 text-[13px]">
-            <Link href="/" className="text-muted underline">
+          <p className="mt-2 text-[13px] text-muted">
+            <Link href="/" className="underline">
               Back to store
+            </Link>{" "}
+            ·{" "}
+            <Link href="/admin/login" className="underline">
+              Staff? Go to admin portal
             </Link>
           </p>
         </section>

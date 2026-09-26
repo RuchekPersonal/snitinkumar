@@ -27,8 +27,9 @@ function SearchBar({ className = "" }: { className?: string }) {
 }
 
 export function Header({ viewer }: { viewer: Viewer }) {
-  const accountHref = viewer.role === "guest" ? "/login" : "/account";
-  const accountLabel = viewer.role === "guest" ? "Login" : "My account";
+  const signedIn = !!viewer.retailerId || viewer.role !== "guest";
+  const accountHref = signedIn ? "/account" : "/login";
+  const accountLabel = signedIn ? "My account" : "Login";
 
   return (
     <>

@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/site";
 import { listAllProductCodes, listCategories } from "@/lib/server/catalog";
 
+// Built on request (data is cached), so deployments never depend on the database being reachable.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl().origin;
   const [categories, products] = await Promise.all([listCategories(), listAllProductCodes()]);

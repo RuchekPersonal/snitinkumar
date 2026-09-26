@@ -1,7 +1,9 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { Role, Viewer } from "@/lib/types";
+import { db } from "./db";
 
 export const SESSION_COOKIE = "sn_session";
 const MAX_AGE_S = 60 * 60 * 24 * 30;
@@ -46,13 +48,9 @@ export function verifyToken<T>(scope: string, token: string | undefined): T | nu
   }
 }
 
-export function encodeSession(viewer: Viewer): string {
-  return signToken("retailer", viewer, MAX_AGE_S);
-}
-
-function decodeSession(token: string | undefined): Viewer | null {
-  const p = verifyToken<Viewer>("retailer", token);
-  return p && { role: p.role, name: p.name, shopName: p.shopName, city: p.city, phone: p.phone };
+interface RetailerToken {
+  rid?: string; // real retailer session: status is always read fresh from the database
+  demo?: Viewer; // review-only demo session (dev / ENABLE_DEMO_ROLES)
 }
 
 export const sessionCookieOptions = {
@@ -63,17 +61,53 @@ export const sessionCookieOptions = {
   maxAge: MAX_AGE_S,
 };
 
-export async function getViewer(): Promise<Viewer> {
-  const jar = await cookies();
-  return decodeSession(jar.get(SESSION_COOKIE)?.value) ?? { role: "guest" };
+export function encodeRetailerSession(retailerId: string): string {
+  return signToken("retailer", { rid: retailerId } satisfies RetailerToken, MAX_AGE_S);
 }
+
+export function encodeDemoSession(viewer: Viewer): string {
+  return signToken("retailer", { demo: viewer } satisfies RetailerToken, MAX_AGE_S);
+}
+
+const ROLE_BY_STATUS: Record<string, Role> = { approved: "approved", pending: "pending" };
+
+/** The current storefront visitor. Cached per request; blocked/rejected shops browse as guests. */
+export const getViewer = cache(async (): Promise<Viewer> => {
+  const jar = await cookies();
+  const token = verifyToken<RetailerToken>("retailer", jar.get(SESSION_COOKIE)?.value);
+  if (!token) return { role: "guest" };
+
+  if (token.rid) {
+    const { data } = await db()
+      .from("retailers")
+      .select("id, shop_name, owner_name, city, mobile, status")
+      .eq("id", token.rid)
+      .maybeSingle();
+    if (!data) return { role: "guest" };
+    return {
+      role: ROLE_BY_STATUS[data.status] ?? "guest",
+      retailerId: data.id,
+      status: data.status,
+      name: data.owner_name,
+      shopName: data.shop_name,
+      city: data.city,
+      phone: data.mobile,
+    };
+  }
+
+  if (token.demo && demoRolesEnabled()) {
+    const d = token.demo;
+    return { role: d.role, name: d.name, shopName: d.shopName, city: d.city, phone: d.phone };
+  }
+  return { role: "guest" };
+});
 
 /** Rates are released only to approved retailers and staff (RFD Q9). */
 export function canSeePrices(role: Role): boolean {
   return role === "approved" || role === "admin";
 }
 
-/** Demo role switcher for reviewing price gating before real login exists (Phase 4). */
+/** Demo role switcher for reviewing price gating without a real login. */
 export function demoRolesEnabled(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.ENABLE_DEMO_ROLES === "true";
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { demoRolesEnabled, encodeSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/server/session";
+import { demoRolesEnabled, encodeDemoSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/server/session";
 import type { Viewer } from "@/lib/types";
 
-// Review-only role switcher so price gating can be checked before real login (Phase 4).
+// Review-only role switcher so price gating can be checked without a real OTP login.
 // Disabled in production unless ENABLE_DEMO_ROLES=true.
 const demoViewers: Record<string, Viewer> = {
   approved: {
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
   const res = NextResponse.redirect(target, 303);
   const viewer = demoViewers[role];
-  if (viewer) res.cookies.set(SESSION_COOKIE, encodeSession(viewer), sessionCookieOptions);
+  if (viewer) res.cookies.set(SESSION_COOKIE, encodeDemoSession(viewer), sessionCookieOptions);
   else res.cookies.delete(SESSION_COOKIE);
   return res;
 }

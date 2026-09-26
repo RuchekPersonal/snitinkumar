@@ -2,6 +2,8 @@ export type Role = "guest" | "pending" | "approved" | "admin";
 
 export interface Viewer {
   role: Role;
+  retailerId?: string;
+  status?: "pending" | "approved" | "rejected" | "blocked";
   name?: string;
   shopName?: string;
   city?: string;

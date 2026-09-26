@@ -7,7 +7,7 @@ import { DemoRoleBar } from "@/components/layout/demo-role-bar";
 
 export default async function StoreLayout({ children }: LayoutProps<"/">) {
   const viewer = await getViewer();
-  const accountHref = viewer.role === "guest" ? "/login" : "/account";
+  const accountHref = viewer.retailerId || viewer.role !== "guest" ? "/account" : "/login";
 
   return (
     <div className="flex min-h-dvh flex-col pb-safe-nav">

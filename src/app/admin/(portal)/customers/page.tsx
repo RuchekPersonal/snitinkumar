@@ -81,7 +81,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
         {data.items.length === 0 ? (
           <Empty>
             {data.total === 0
-              ? "No retailers yet. They appear here when shops register (Phase 4), or add one manually."
+              ? "No retailers yet. They appear here when shops register with OTP, or add one manually."
               : "No retailers match."}
           </Empty>
         ) : (

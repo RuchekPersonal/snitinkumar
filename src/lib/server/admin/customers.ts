@@ -7,7 +7,8 @@ import { must } from "./util";
 /** "+91 98765 43210", "09876543210", "919876543210" → "+919876543210". Only strips a 91/0 prefix when it is extra. */
 export function normaliseIndianMobile(raw: string): string {
   const d = raw.replace(/\D/g, "");
-  const ten = d.length === 12 && d.startsWith("91") ? d.slice(2) : d.length === 11 && d.startsWith("0") ? d.slice(1) : d;
+  const ten =
+    d.length === 12 && d.startsWith("91") ? d.slice(2) : d.length === 11 && d.startsWith("0") ? d.slice(1) : d;
   return `+91${ten}`;
 }
 

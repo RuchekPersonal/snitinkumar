@@ -46,9 +46,11 @@ export async function createEnquiry(
   const { data: enquiry, error } = await client
     .from("enquiries")
     .insert({
-      guest_shop: shop || null,
-      guest_name: person || null,
-      guest_city: city || null,
+      // Signed-in shops are linked to their account; guests leave optional contact details.
+      retailer_id: viewer.retailerId ?? null,
+      guest_shop: viewer.retailerId ? null : shop || null,
+      guest_name: viewer.retailerId ? null : person || null,
+      guest_city: viewer.retailerId ? null : city || null,
       source: "website",
       note_from_retailer: note,
       est_value_paise: value,

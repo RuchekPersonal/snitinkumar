@@ -30,7 +30,7 @@ export function DemoRoleBar({ role }: { role: Role }) {
             {r.label}
           </a>
         ))}
-        <span className="text-muted">(review only; replaced by real login in Phase 4)</span>
+        <span className="text-muted">(review only · off on the live site)</span>
       </div>
     </div>
   );
