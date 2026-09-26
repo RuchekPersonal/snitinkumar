@@ -45,6 +45,7 @@ interface CategoryRow {
   short_name: string;
   description: string;
   show_on_home: boolean;
+  cover_image_id: string | null;
 }
 
 interface Snapshot {
@@ -67,7 +68,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
       .eq("is_visible", true),
     client
       .from("categories")
-      .select("slug, name, short_name, description, show_on_home")
+      .select("slug, name, short_name, description, show_on_home, cover_image_id")
       .eq("is_visible", true)
       .order("sort_order"),
     client.from("fabrics").select("name").order("sort_order"),
@@ -111,7 +112,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
   };
 }
 
-const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v2"], {
+const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v3"], {
   revalidate: 300,
   tags: [CATALOG_TAG],
 });
@@ -150,6 +151,7 @@ export async function listCategories(): Promise<Category[]> {
     shortName: c.short_name,
     description: c.description,
     showOnHome: c.show_on_home,
+    coverImageId: c.cover_image_id,
     designCount: products.filter((p) => p.categorySlug === c.slug).length,
   }));
 }

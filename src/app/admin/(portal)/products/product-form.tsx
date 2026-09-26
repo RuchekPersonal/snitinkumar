@@ -8,6 +8,7 @@ import type { Lookups } from "@/lib/server/admin/products";
 import { saveProductAction, deleteImageAction, reorderImagesAction } from "@/app/admin/_actions/products";
 import { createColourAction } from "@/app/admin/_actions/categories";
 import { ColourPalette, type ColourDraft } from "@/components/admin/colour-palette";
+import { shrinkImage } from "@/components/admin/shrink-image";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
 import { sizesLabel } from "@/lib/format";
 
@@ -42,22 +43,6 @@ interface Props {
 }
 
 type Photo = { kind: "saved"; id: string } | { kind: "new"; key: string; file: File; url: string };
-
-/** Resize in the browser to ≤1600 px JPEG so uploads are small and fast on mobile data. */
-async function shrink(file: File): Promise<File> {
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
-    return blob ? new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }) : file;
-  } catch {
-    return file;
-  }
-}
 
 function Field({
   name,
@@ -173,7 +158,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
       }
       setMessage({ kind: "ok", text: `Uploading photo ${n + 1} of ${photos.length}…` });
       const body = new FormData();
-      body.set("file", await shrink(p.file));
+      body.set("file", await shrinkImage(p.file));
       const res = await fetch(`/api/admin/products/${result.id}/images`, { method: "POST", body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

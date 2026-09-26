@@ -13,6 +13,9 @@ export async function generateMetadata({ params }: PageProps<"/catalog/[category
     title: `${category.name} — Wholesale Catalogue`,
     description: `${category.designCount} designs · Min 3 pcs per design · Wholesale only. ${category.description}`,
     path: `/catalog/${category.slug}`,
+    image: category.coverImageId
+      ? { url: `/api/site-img/${category.coverImageId}/og.jpg`, width: 1200, height: 630, alt: category.name }
+      : undefined,
   });
 }
 

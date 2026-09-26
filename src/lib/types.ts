@@ -16,6 +16,7 @@ export interface Category {
   shortName: string;
   description: string;
   showOnHome: boolean;
+  coverImageId: string | null;
   designCount: number;
 }
 

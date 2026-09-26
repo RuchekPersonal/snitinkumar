@@ -254,12 +254,18 @@ function sniffImage(buf: Buffer): boolean {
   return jpeg || png || webp;
 }
 
-export async function addProductImage(productId: string, file: File): Promise<{ id: string }> {
-  await requireAdmin();
+/** Checks type, size and actual file content of an uploaded photo; returns its bytes. */
+export async function readUploadedImage(file: File): Promise<Buffer> {
   if (!IMAGE_TYPES.has(file.type)) throw new Error("Only JPG, PNG or WebP photos");
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Photo is larger than 5 MB");
   const buf = Buffer.from(await file.arrayBuffer());
   if (!sniffImage(buf)) throw new Error("File is not a valid image");
+  return buf;
+}
+
+export async function addProductImage(productId: string, file: File): Promise<{ id: string }> {
+  await requireAdmin();
+  const buf = await readUploadedImage(file);
 
   const c = db();
   const product = must(await c.from("products").select("id, name").eq("id", productId).maybeSingle(), "product");

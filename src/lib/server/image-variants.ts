@@ -61,3 +61,58 @@ export async function encodeProductImage(input: Buffer): Promise<EncodedImage> {
     bytes: input.length,
   };
 }
+
+// ---------------------------------------------------------------- site images (home hero, category covers)
+
+export type SiteImageKind = "hero" | "category";
+
+/** Crop sizes per slot, matched to the tiles they fill on the home page. */
+function siteSizes(kind: SiteImageKind, position: number | null) {
+  if (kind === "category") return { full: [800, 600], thumb: [160, 160] } as const; // tile 4:3, pill thumb square
+  if (position === 0) return { full: [720, 1300], thumb: [240, 433] } as const; // tall hero tile
+  return { full: [660, 594], thumb: [220, 198] } as const; // small hero tiles (10:9)
+}
+
+export interface EncodedSiteImage {
+  full_b64: string;
+  thumb_b64: string;
+  og_b64: string | null;
+  width: number;
+  height: number;
+  bytes: number;
+}
+
+export async function encodeSiteImage(
+  input: Buffer,
+  kind: SiteImageKind,
+  position: number | null,
+): Promise<EncodedSiteImage> {
+  const src = sharp(input, { failOn: "error" }).rotate();
+  const meta = await src.metadata();
+  const s = siteSizes(kind, position);
+  const crop = (w: number, h: number) =>
+    src.clone().resize(w, h, { fit: "cover", position: "attention" }).webp({ quality: 80 }).toBuffer();
+  const [full, thumb] = await Promise.all([crop(s.full[0], s.full[1]), crop(s.thumb[0], s.thumb[1])]);
+
+  let og: Buffer | null = null;
+  if (kind === "category") {
+    const o = VARIANTS.og;
+    const photo = await src
+      .clone()
+      .resize(o.width - 36, o.height - 36, { fit: "cover", position: "attention" })
+      .toBuffer();
+    og = await sharp({ create: { width: o.width, height: o.height, channels: 3, background: "#CAA24B" } })
+      .composite([{ input: photo, left: 18, top: 18 }])
+      .jpeg({ quality: 78, mozjpeg: true })
+      .toBuffer();
+  }
+
+  return {
+    full_b64: full.toString("base64"),
+    thumb_b64: thumb.toString("base64"),
+    og_b64: og ? og.toString("base64") : null,
+    width: meta.width ?? 0,
+    height: meta.height ?? 0,
+    bytes: input.length,
+  };
+}

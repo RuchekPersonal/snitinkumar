@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { moveCategoryAction, saveCategoryAction } from "@/app/admin/_actions/categories";
 import { btnPrimary, btnSecondary, input, label } from "@/components/admin/ui";
 import { slugify } from "@/lib/format";
+import { CategoryPhoto } from "./category-photo";
 
 interface Category {
   id: number;
@@ -13,6 +14,7 @@ interface Category {
   description: string;
   show_on_home: boolean;
   is_visible: boolean;
+  cover_image_id: string | null;
   designs: number;
 }
 
@@ -171,6 +173,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                   ▼
                 </button>
               </div>
+              <CategoryPhoto categoryId={c.id} name={c.name} coverId={c.cover_image_id} />
               <div className="min-w-0 flex-1">
                 <p className={`font-serif text-lg font-semibold ${c.is_visible ? "" : "text-muted"}`}>{c.name}</p>
                 <p className="text-[12px] text-muted">

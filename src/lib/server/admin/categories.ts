@@ -23,7 +23,7 @@ export async function getCategoriesPage() {
   const [cats, fabrics, colours, sizes, products] = await Promise.all([
     c
       .from("categories")
-      .select("id, slug, name, short_name, description, show_on_home, is_visible, sort_order")
+      .select("id, slug, name, short_name, description, show_on_home, is_visible, sort_order, cover_image_id")
       .order("sort_order"),
     c.from("fabrics").select("id, name, sort_order").order("sort_order"),
     c.from("colours").select("id, name, hex, sort_order").order("sort_order"),
@@ -45,6 +45,7 @@ export async function getCategoriesPage() {
         description: string;
         show_on_home: boolean;
         is_visible: boolean;
+        cover_image_id: string | null;
       }[]
     ).map((x) => ({ ...x, designs: count("category_id", x.id) })),
     fabrics: (must(fabrics, "fabrics") as { id: number; name: string }[]).map((x) => ({
