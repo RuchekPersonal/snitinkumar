@@ -33,13 +33,14 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: "Invalid enquiry" }, { status: 400 });
 
   const viewer = await getViewer();
-  const result = await createEnquiry(
-    parsed.data.lines,
-    parsed.data.note,
-    parsed.data.contact,
-    viewer,
-    siteUrl().origin,
-  );
+  let result;
+  try {
+    result = await createEnquiry(parsed.data.lines, parsed.data.note, parsed.data.contact, viewer, siteUrl().origin);
+  } catch (err) {
+    console.error("[enquiries]", err);
+    // The client falls back to opening WhatsApp without a reference, so the retailer is never stuck.
+    return Response.json({ error: "Could not save the enquiry." }, { status: 503 });
+  }
   if ("error" in result) return Response.json({ error: result.error }, { status: 422 });
   return Response.json(result, { status: 201 });
 }

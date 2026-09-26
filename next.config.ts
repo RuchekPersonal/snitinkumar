@@ -10,8 +10,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // sharp is a native module used by the image service; keep it out of the server bundle.
-  serverExternalPackages: ["sharp"],
+  // Native modules (image processing, password hashing) stay out of the server bundle.
+  serverExternalPackages: ["sharp", "@node-rs/argon2"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

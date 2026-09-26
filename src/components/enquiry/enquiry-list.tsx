@@ -70,12 +70,20 @@ export function EnquiryList({ role, knownShop }: { role: Role; knownShop: string
       note: note.trim(),
       contact: role === "guest" ? contact : {},
     };
+    const openWithoutRef = () => {
+      // Server problem: still let the retailer reach us on WhatsApp, just without a reference.
+      const url = waLink(fallbackMessage(lines, note.trim()));
+      clear();
+      setStatus({ kind: "sent", ref: null, url });
+      window.location.href = url;
+    };
     try {
       const res = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status >= 500) return openWithoutRef();
       const data = await res.json();
       if (!res.ok) {
         setStatus({ kind: "error", message: data.error ?? "Could not send enquiry." });
@@ -85,11 +93,7 @@ export function EnquiryList({ role, knownShop }: { role: Role; knownShop: string
       setStatus({ kind: "sent", ref: data.ref, url: data.whatsappUrl });
       window.location.href = data.whatsappUrl;
     } catch {
-      // Network problem: still let the retailer reach us on WhatsApp, just without a reference.
-      const url = waLink(fallbackMessage(lines, note.trim()));
-      clear();
-      setStatus({ kind: "sent", ref: null, url });
-      window.location.href = url;
+      openWithoutRef();
     }
   }
 

@@ -1,7 +1,5 @@
-import "server-only";
-
-// Phase 1 stand-in for the Supabase tables. Shapes mirror the planned schema (RFD §8)
-// so the repository layer can swap to Supabase without touching pages.
+// Sample catalogue loaded by scripts/db/seed.ts. Shapes mirror the schema (RFD §8).
+// Replace with real products through the admin portal (Phase 3).
 
 export interface ProductRow {
   code: string;

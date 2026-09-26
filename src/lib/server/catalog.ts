@@ -1,52 +1,153 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import type { CatalogFilters, CatalogPage, Category, ProductCard, ProductDetail, Viewer } from "@/lib/types";
-import { SIZE_ORDER } from "@/lib/format";
 import { canSeePrices } from "./session";
-import { categories, colours, fabrics, products, type ProductRow } from "./mock-data";
+import { db } from "./db";
 
 // Repository for storefront reads. Every function maps rows to DTOs and drops price
 // fields unless the viewer may see them, so pages cannot leak rates by accident.
+//
+// The visible catalogue (a few hundred designs, no image bytes) is loaded once and cached
+// on the server under the "catalog" tag; filtering happens in memory. Admin saves call
+// revalidateTag("catalog") so changes show immediately.
 
 export const PAGE_SIZE = 24;
+export const CATALOG_TAG = "catalog";
 
-const today = () => new Date().toISOString().slice(0, 10);
+interface ProductRow {
+  id: string;
+  code: string;
+  name: string;
+  categorySlug: string;
+  fabric: string;
+  colour: string;
+  description: string;
+  work: string;
+  lengthIn: number | null;
+  setIncludes: string;
+  washCare: string;
+  ratePaise: number;
+  moq: number;
+  stockPcs: number;
+  sizes: string[];
+  isTrending: boolean;
+  newUntil: string | null;
+  popularity: number;
+  createdAt: string;
+  updatedAt: string;
+  imageIds: string[];
+}
+
+interface CategoryRow {
+  slug: string;
+  name: string;
+  short_name: string;
+  description: string;
+  show_on_home: boolean;
+}
+
+interface Snapshot {
+  products: ProductRow[];
+  categories: CategoryRow[];
+  fabrics: string[];
+  colours: string[];
+  sizes: string[];
+}
+
+async function fetchSnapshot(): Promise<Snapshot> {
+  const client = db();
+  const [products, categories, fabrics, colours, sizes] = await Promise.all([
+    client
+      .from("product_catalog")
+      .select(
+        "id, code, name, description, work, length_in, set_includes, wash_care, rate_paise, moq, stock_pcs, is_trending, new_until, popularity, created_at, updated_at, category_slug, fabric, colour, sizes, image_ids",
+      )
+      .eq("is_visible", true),
+    client
+      .from("categories")
+      .select("slug, name, short_name, description, show_on_home")
+      .eq("is_visible", true)
+      .order("sort_order"),
+    client.from("fabrics").select("name").order("sort_order"),
+    client.from("colours").select("name").order("sort_order"),
+    client.from("sizes").select("label").order("sort_order"),
+  ]);
+  for (const r of [products, categories, fabrics, colours, sizes]) {
+    if (r.error) throw new Error(`catalog load failed: ${r.error.message}`);
+  }
+
+  return {
+    products: products.data!.map((p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      categorySlug: p.category_slug,
+      fabric: p.fabric,
+      colour: p.colour,
+      description: p.description,
+      work: p.work,
+      lengthIn: p.length_in,
+      setIncludes: p.set_includes,
+      washCare: p.wash_care,
+      ratePaise: p.rate_paise,
+      moq: p.moq,
+      stockPcs: p.stock_pcs,
+      sizes: p.sizes,
+      isTrending: p.is_trending,
+      newUntil: p.new_until,
+      popularity: p.popularity,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      imageIds: p.image_ids,
+    })),
+    categories: categories.data!,
+    fabrics: fabrics.data!.map((f) => f.name),
+    colours: colours.data!.map((c) => c.name),
+    sizes: sizes.data!.map((s) => s.label),
+  };
+}
+
+const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v1"], {
+  revalidate: 300,
+  tags: [CATALOG_TAG],
+});
+
+// India time, so "new for 14 days" flips at local midnight rather than UTC.
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 const isNew = (p: ProductRow) => p.newUntil !== null && p.newUntil >= today();
-const visible = () => products.filter((p) => p.isVisible);
-const imageIdsFor = (p: ProductRow) =>
-  Array.from({ length: p.imageCount }, (_, i) => `${p.code.toLowerCase()}-${i + 1}`);
 
-function toCard(p: ProductRow, viewer: Viewer): ProductCard {
-  const cat = categories.find((c) => c.slug === p.categorySlug)!;
+function toCard(p: ProductRow, snap: Snapshot, viewer: Viewer): ProductCard {
   const card: ProductCard = {
     code: p.code,
     name: p.name,
-    categorySlug: cat.slug,
-    categoryName: cat.name,
+    categorySlug: p.categorySlug,
+    categoryName: snap.categories.find((c) => c.slug === p.categorySlug)?.name ?? "",
     fabric: p.fabric,
     colour: p.colour,
-    sizes: [...p.sizes].sort((a, b) => SIZE_ORDER.indexOf(a as never) - SIZE_ORDER.indexOf(b as never)),
+    sizes: p.sizes,
     moq: p.moq,
     inStock: p.stockPcs > 0,
     isNew: isNew(p),
-    coverImageId: imageIdsFor(p)[0] ?? null,
+    coverImageId: p.imageIds[0] ?? null,
   };
   if (canSeePrices(viewer.role)) card.ratePaise = p.ratePaise;
   return card;
 }
 
+// Products in hidden categories are not shown anywhere on the storefront.
+const live = (snap: Snapshot) => snap.products.filter((p) => snap.categories.some((c) => c.slug === p.categorySlug));
+
 export async function listCategories(): Promise<Category[]> {
-  const live = visible();
-  return categories
-    .filter((c) => c.isVisible)
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((c) => ({
-      slug: c.slug,
-      name: c.name,
-      shortName: c.shortName,
-      description: c.description,
-      showOnHome: c.showOnHome,
-      designCount: live.filter((p) => p.categorySlug === c.slug).length,
-    }));
+  const snap = await snapshot();
+  const products = live(snap);
+  return snap.categories.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    shortName: c.short_name,
+    description: c.description,
+    showOnHome: c.show_on_home,
+    designCount: products.filter((p) => p.categorySlug === c.slug).length,
+  }));
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -54,19 +155,21 @@ export async function getCategory(slug: string): Promise<Category | null> {
 }
 
 export async function listFacets() {
-  const live = visible();
+  const snap = await snapshot();
+  const products = live(snap);
   return {
-    fabrics: fabrics.filter((f) => live.some((p) => p.fabric === f)),
-    colours: colours.filter((c) => live.some((p) => p.colour === c)),
-    sizes: [...SIZE_ORDER],
-    totalDesigns: live.length,
-    newCount: live.filter(isNew).length,
+    fabrics: snap.fabrics.filter((f) => products.some((p) => p.fabric === f)),
+    colours: snap.colours.filter((c) => products.some((p) => p.colour === c)),
+    sizes: snap.sizes,
+    totalDesigns: products.length,
+    newCount: products.filter(isNew).length,
   };
 }
 
 export async function listProducts(filters: CatalogFilters, viewer: Viewer): Promise<CatalogPage> {
+  const snap = await snapshot();
   const priced = canSeePrices(viewer.role);
-  let rows = visible();
+  let rows = live(snap);
 
   if (filters.category) rows = rows.filter((p) => p.categorySlug === filters.category);
   if (filters.fabric) rows = rows.filter((p) => p.fabric === filters.fabric);
@@ -78,7 +181,7 @@ export async function listProducts(filters: CatalogFilters, viewer: Viewer): Pro
   if (filters.q) {
     const terms = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
     rows = rows.filter((p) => {
-      const hay = `${p.code} ${p.name} ${p.fabric} ${p.colour} ${p.categorySlug}`.toLowerCase();
+      const hay = `${p.code} ${p.name} ${p.fabric} ${p.colour} ${p.categorySlug} ${p.work}`.toLowerCase();
       return terms.every((t) => hay.includes(t));
     });
   }
@@ -94,47 +197,61 @@ export async function listProducts(filters: CatalogFilters, viewer: Viewer): Pro
   const total = rows.length;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, filters.page ?? 1), pageCount);
-  const items = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((p) => toCard(p, viewer));
+  const items = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((p) => toCard(p, snap, viewer));
   return { items, total, page, pageCount };
 }
 
 export async function listTrending(viewer: Viewer, limit = 8): Promise<ProductCard[]> {
-  return visible()
+  const snap = await snapshot();
+  return live(snap)
     .filter((p) => p.isTrending)
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, limit)
-    .map((p) => toCard(p, viewer));
+    .map((p) => toCard(p, snap, viewer));
 }
 
 export async function getProduct(code: string, viewer: Viewer): Promise<ProductDetail | null> {
-  const p = visible().find((r) => r.code.toLowerCase() === code.toLowerCase());
+  const snap = await snapshot();
+  const p = live(snap).find((r) => r.code.toLowerCase() === code.toLowerCase());
   if (!p) return null;
   return {
-    ...toCard(p, viewer),
+    ...toCard(p, snap, viewer),
     description: p.description,
     work: p.work,
     lengthIn: p.lengthIn,
     setIncludes: p.setIncludes,
     washCare: p.washCare,
-    imageIds: imageIdsFor(p),
+    imageIds: p.imageIds,
   };
 }
 
 export async function getProductsByCodes(codes: string[], viewer: Viewer): Promise<ProductCard[]> {
+  const snap = await snapshot();
   const wanted = new Set(codes.map((c) => c.toUpperCase()));
-  return visible()
+  return live(snap)
     .filter((p) => wanted.has(p.code))
-    .map((p) => toCard(p, viewer));
+    .map((p) => toCard(p, snap, viewer));
+}
+
+/** Internal: ids and current rates for enquiry snapshots. Never returned to the browser. */
+export async function getEnquiryProducts(codes: string[]) {
+  const snap = await snapshot();
+  const wanted = new Set(codes.map((c) => c.toUpperCase()));
+  return live(snap)
+    .filter((p) => wanted.has(p.code))
+    .map((p) => ({ id: p.id, code: p.code, name: p.name, ratePaise: p.ratePaise, moq: p.moq, sizes: p.sizes }));
 }
 
 export async function listRelated(code: string, viewer: Viewer, limit = 4): Promise<ProductCard[]> {
-  const p = visible().find((r) => r.code === code);
+  const snap = await snapshot();
+  const products = live(snap);
+  const p = products.find((r) => r.code === code);
   if (!p) return [];
-  return visible()
+  return products
     .filter((r) => r.categorySlug === p.categorySlug && r.code !== code)
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, limit)
-    .map((r) => toCard(r, viewer));
+    .map((r) => toCard(r, snap, viewer));
 }
 
 /** Exact product-code match for search ("SN-101", "sn101", "101"). */
@@ -145,19 +262,11 @@ export async function findByExactCode(q: string): Promise<string | null> {
     .match(/^(?:SN)?-?\s?(\d{3,})$/);
   if (!m) return null;
   const code = `SN-${m[1]}`;
-  return visible().some((p) => p.code === code) ? code : null;
+  const snap = await snapshot();
+  return live(snap).some((p) => p.code === code) ? code : null;
 }
 
 export async function listAllProductCodes(): Promise<{ code: string; updatedAt: string }[]> {
-  return visible().map((p) => ({ code: p.code, updatedAt: p.createdAt }));
-}
-
-/** Lookup used only by the image route: which colour/label a placeholder should use. */
-export async function productForImage(imageId: string) {
-  const code = imageId.replace(/-\d+$/, "").toUpperCase();
-  const p = visible().find((r) => r.code === code);
-  if (!p) return null;
-  const index = Number(imageId.match(/-(\d+)$/)?.[1] ?? 1);
-  if (index < 1 || index > p.imageCount) return null;
-  return { code: p.code, name: p.name, colour: p.colour, fabric: p.fabric, index };
+  const snap = await snapshot();
+  return live(snap).map((p) => ({ code: p.code, updatedAt: p.updatedAt }));
 }

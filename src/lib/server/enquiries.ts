@@ -3,18 +3,9 @@ import type { EnquiryLine, Viewer } from "@/lib/types";
 import { rupees, sizesLabel } from "@/lib/format";
 import { site } from "@/lib/site";
 import { waLink } from "@/lib/whatsapp";
-import { getProductsByCodes } from "./catalog";
-
-// Phase 1: enquiries are kept in memory. Phase 2 writes them to the enquiries tables.
-
-interface StoredEnquiry {
-  ref: string;
-  createdAt: string;
-  role: Viewer["role"];
-  contact: GuestContact;
-  lines: { code: string; name: string; qty: number; ratePaise: number | null }[];
-  note: string;
-}
+import { getEnquiryProducts } from "./catalog";
+import { canSeePrices } from "./session";
+import { db } from "./db";
 
 export interface GuestContact {
   name?: string;
@@ -22,9 +13,10 @@ export interface GuestContact {
   city?: string;
 }
 
-const enquiries: StoredEnquiry[] = [];
-let seq = 1047;
-
+/**
+ * Saves an enquiry (with rate snapshots for staff) and builds the pre-filled WhatsApp
+ * message. The message carries rates only when the viewer may see them (RFD Q9).
+ */
 export async function createEnquiry(
   lines: EnquiryLine[],
   note: string,
@@ -32,10 +24,7 @@ export async function createEnquiry(
   viewer: Viewer,
   baseUrl: string,
 ) {
-  const products = await getProductsByCodes(
-    lines.map((l) => l.code),
-    viewer,
-  );
+  const products = await getEnquiryProducts(lines.map((l) => l.code));
   const byCode = new Map(products.map((p) => [p.code, p]));
 
   const items = lines
@@ -45,46 +34,62 @@ export async function createEnquiry(
 
   if (items.length === 0) return { error: "None of these designs are available any more." } as const;
 
-  const ref = `ENQ-${++seq}`;
-  const priced = items.every((i) => i.product.ratePaise !== undefined);
+  const priced = canSeePrices(viewer.role);
   const pcs = items.reduce((s, i) => s + i.qty, 0);
-  const value = priced ? items.reduce((s, i) => s + i.qty * i.product.ratePaise!, 0) : null;
+  const value = items.reduce((s, i) => s + i.qty * i.product.ratePaise, 0);
 
-  const who = viewer.shopName ?? contact.shop;
+  const shop = viewer.shopName ?? contact.shop;
   const person = viewer.name ?? contact.name;
   const city = viewer.city ?? contact.city;
 
+  const client = db();
+  const { data: enquiry, error } = await client
+    .from("enquiries")
+    .insert({
+      guest_shop: shop || null,
+      guest_name: person || null,
+      guest_city: city || null,
+      source: "website",
+      note_from_retailer: note,
+      est_value_paise: value,
+      total_pcs: pcs,
+    })
+    .select("id, ref")
+    .single();
+  if (error) throw new Error(`enquiry insert failed: ${error.message}`);
+
+  const { error: itemsError } = await client.from("enquiry_items").insert(
+    items.map((i) => ({
+      enquiry_id: enquiry.id,
+      product_id: i.product.id,
+      code_snapshot: i.product.code,
+      name_snapshot: i.product.name,
+      rate_paise_snapshot: i.product.ratePaise,
+      qty: i.qty,
+    })),
+  );
+  if (itemsError) {
+    await client.from("enquiries").delete().eq("id", enquiry.id);
+    throw new Error(`enquiry items insert failed: ${itemsError.message}`);
+  }
+
   const msg: string[] = [];
   msg.push(`*New wholesale enquiry – ${site.name}*`);
-  msg.push(`Ref: ${ref}`);
-  if (who || person) msg.push(`From: ${[who, person].filter(Boolean).join(" – ")}${city ? `, ${city}` : ""}`);
+  msg.push(`Ref: ${enquiry.ref}`);
+  if (shop || person) msg.push(`From: ${[shop, person].filter(Boolean).join(" – ")}${city ? `, ${city}` : ""}`);
   msg.push("");
   items.forEach((i, n) => {
     msg.push(`${n + 1}. *${i.product.code}* – ${i.product.name}`);
     const parts = [`Qty ${i.qty} pcs`, `Sizes ${sizesLabel(i.product.sizes)}`];
-    if (i.product.ratePaise !== undefined) parts.push(`${rupees(i.product.ratePaise)}/pc`);
+    if (priced) parts.push(`${rupees(i.product.ratePaise)}/pc`);
     msg.push(`   ${parts.join(" · ")}`);
     msg.push(`   ${baseUrl}/product/${i.product.code}`);
   });
   msg.push("");
-  msg.push(`Total: ${items.length} designs · ${pcs} pcs${value !== null ? ` · approx. ${rupees(value)}` : ""}`);
+  msg.push(`Total: ${items.length} designs · ${pcs} pcs${priced ? ` · approx. ${rupees(value)}` : ""}`);
   if (note) msg.push(`Note: ${note}`);
   msg.push("");
   msg.push("Please confirm rate, availability and dispatch.");
 
-  enquiries.unshift({
-    ref,
-    createdAt: new Date().toISOString(),
-    role: viewer.role,
-    contact,
-    lines: items.map((i) => ({
-      code: i.product.code,
-      name: i.product.name,
-      qty: i.qty,
-      ratePaise: i.product.ratePaise ?? null,
-    })),
-    note,
-  });
-
-  return { ref, whatsappUrl: waLink(msg.join("\n")) } as const;
+  return { ref: enquiry.ref as string, whatsappUrl: waLink(msg.join("\n")) } as const;
 }
