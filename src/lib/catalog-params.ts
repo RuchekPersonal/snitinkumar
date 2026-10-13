@@ -35,3 +35,11 @@ export function filtersToQuery(f: CatalogFilters): string {
   const s = q.toString();
   return s ? `?${s}` : "";
 }
+
+// Page titles, shared by the server metadata and the browser (which updates the tab title
+// itself when a filter link changes the page in place).
+export const catalogTitles = {
+  all: "Wholesale Kurti Catalogue",
+  newArrivals: "New Arrivals — This Fortnight",
+  category: (name: string) => `${name} — Wholesale Catalogue`,
+};

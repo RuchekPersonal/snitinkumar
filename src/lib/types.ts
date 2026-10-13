@@ -60,6 +60,14 @@ export interface CatalogFilters {
   page?: number;
 }
 
+/** A card plus the fields the browser needs to filter, search and sort the catalogue. */
+export interface CatalogItem extends ProductCard {
+  colours: string[];
+  work: string;
+  popularity: number;
+  createdAt: string;
+}
+
 export interface CatalogPage {
   items: ProductCard[];
   total: number;

@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import type { CatalogFilters, CatalogPage, Category, ProductCard, ProductDetail, Viewer } from "@/lib/types";
+import type { CatalogItem, Category, ProductCard, ProductDetail, Viewer } from "@/lib/types";
 import { canSeePrices } from "./session";
 import { db } from "./db";
 
@@ -8,10 +8,9 @@ import { db } from "./db";
 // fields unless the viewer may see them, so pages cannot leak rates by accident.
 //
 // The visible catalogue (a few hundred designs, no image bytes) is loaded once and cached
-// on the server under the "catalog" tag; filtering happens in memory. Admin saves call
-// revalidateTag("catalog") so changes show immediately.
+// on the server under the "catalog" tag. The catalogue page sends it to the browser once and
+// filters there. Admin saves call revalidateTag("catalog") so changes show immediately.
 
-export const PAGE_SIZE = 24;
 export const CATALOG_TAG = "catalog";
 
 interface ProductRow {
@@ -172,39 +171,16 @@ export async function listFacets() {
   };
 }
 
-export async function listProducts(filters: CatalogFilters, viewer: Viewer): Promise<CatalogPage> {
+/** Every visible design as a filterable card; the catalogue page filters these in the browser. */
+export async function listCatalogItems(viewer: Viewer): Promise<CatalogItem[]> {
   const snap = await snapshot();
-  const priced = canSeePrices(viewer.role);
-  let rows = live(snap);
-
-  if (filters.category) rows = rows.filter((p) => p.categorySlug === filters.category);
-  if (filters.fabric) rows = rows.filter((p) => p.fabric === filters.fabric);
-  if (filters.colour) rows = rows.filter((p) => p.colours.includes(filters.colour!));
-  if (filters.size) rows = rows.filter((p) => p.sizes.includes(filters.size!));
-  if (filters.newOnly) rows = rows.filter(isNew);
-  // Price filter/sort only for viewers allowed to see prices, otherwise it would leak rates.
-  if (priced && filters.maxRate) rows = rows.filter((p) => p.ratePaise <= filters.maxRate! * 100);
-  if (filters.q) {
-    const terms = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
-    rows = rows.filter((p) => {
-      const hay = `${p.code} ${p.name} ${p.fabric} ${p.colours.join(" ")} ${p.categorySlug} ${p.work}`.toLowerCase();
-      return terms.every((t) => hay.includes(t));
-    });
-  }
-
-  const sort = filters.sort ?? "newest";
-  rows = [...rows].sort((a, b) => {
-    if (sort === "popular") return b.popularity - a.popularity;
-    if (priced && sort === "price-asc") return a.ratePaise - b.ratePaise;
-    if (priced && sort === "price-desc") return b.ratePaise - a.ratePaise;
-    return b.createdAt.localeCompare(a.createdAt);
-  });
-
-  const total = rows.length;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(Math.max(1, filters.page ?? 1), pageCount);
-  const items = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((p) => toCard(p, snap, viewer));
-  return { items, total, page, pageCount };
+  return live(snap).map((p) => ({
+    ...toCard(p, snap, viewer),
+    colours: p.colours,
+    work: p.work,
+    popularity: p.popularity,
+    createdAt: p.createdAt,
+  }));
 }
 
 export async function listTrending(viewer: Viewer, limit = 8): Promise<ProductCard[]> {

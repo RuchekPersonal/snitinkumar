@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import type { CatalogFilters, Category } from "@/lib/types";
 import { filtersToQuery } from "@/lib/catalog-params";
 import { CloseIcon, FilterIcon } from "@/components/icons";
+import { CatalogLink, navigate } from "./catalog-nav";
 
 interface Props {
   basePath: string;
@@ -18,6 +17,8 @@ interface Props {
   sizes: string[];
   priced: boolean;
   activeCount: number;
+  /** Designs matching the current filters, for the mobile "Show results" button. */
+  resultCount: number;
   mode: "mobile" | "desktop";
 }
 
@@ -72,37 +73,33 @@ function PriceSlider({ initial, onCommit }: { initial: number; onCommit: (v: num
 
 export function FilterPanel(props: Props) {
   const { basePath, filters, categories, activeCategory, priced } = props;
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
-  const apply = (patch: Partial<CatalogFilters>) => {
-    const next = { ...filters, ...patch, page: undefined };
-    startTransition(() => router.push(`${basePath}${filtersToQuery(next)}`, { scroll: false }));
-  };
+  const apply = (patch: Partial<CatalogFilters>) =>
+    navigate(`${basePath}${filtersToQuery({ ...filters, ...patch, page: undefined })}`);
   const toggle = <K extends "fabric" | "colour" | "size">(key: K, value: string) =>
     apply({ [key]: filters[key] === value ? undefined : value } as Partial<CatalogFilters>);
 
   const body = (
-    <div className={pending ? "opacity-60 transition-opacity" : ""}>
+    <div>
       <Section title="Category">
         <ul className="space-y-1 text-[15px]">
           <li>
-            <Link
+            <CatalogLink
               href={`/catalog${filtersToQuery({ ...filters, page: undefined })}`}
               className={`block py-1.5 ${!activeCategory ? "font-semibold text-maroon" : ""}`}
             >
               All ({props.totalDesigns})
-            </Link>
+            </CatalogLink>
           </li>
           {categories.map((c) => (
             <li key={c.slug}>
-              <Link
+              <CatalogLink
                 href={`/catalog/${c.slug}${filtersToQuery({ ...filters, page: undefined })}`}
                 className={`block py-1.5 ${activeCategory === c.slug ? "font-semibold text-maroon" : ""}`}
               >
                 {c.name} ({c.designCount})
-              </Link>
+              </CatalogLink>
             </li>
           ))}
         </ul>
@@ -160,9 +157,9 @@ export function FilterPanel(props: Props) {
       <aside className="sticky top-24 rounded-lg border border-line bg-surface p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold">Filters</h2>
-          <Link href={basePath} className="text-[13px] font-semibold text-maroon underline underline-offset-2">
+          <CatalogLink href={basePath} className="text-[13px] font-semibold text-maroon underline underline-offset-2">
             Clear all
-          </Link>
+          </CatalogLink>
         </div>
         {body}
       </aside>
@@ -193,13 +190,9 @@ export function FilterPanel(props: Props) {
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <h2 className="font-serif text-xl font-semibold">Filters</h2>
               <div className="flex items-center gap-2">
-                <Link
-                  href={basePath}
-                  onClick={() => setOpen(false)}
-                  className="px-2 text-[14px] font-semibold text-maroon"
-                >
+                <CatalogLink href={basePath} className="px-2 text-[14px] font-semibold text-maroon">
                   Clear all
-                </Link>
+                </CatalogLink>
                 <button
                   onClick={() => setOpen(false)}
                   className="grid h-11 w-11 place-items-center"
@@ -215,7 +208,7 @@ export function FilterPanel(props: Props) {
                 onClick={() => setOpen(false)}
                 className="h-12 w-full rounded-md bg-maroon font-semibold text-white"
               >
-                Show results
+                Show {props.resultCount} {props.resultCount === 1 ? "design" : "designs"}
               </button>
             </div>
           </div>
@@ -234,14 +227,13 @@ export function SortSelect({
   filters: CatalogFilters;
   priced: boolean;
 }) {
-  const router = useRouter();
   return (
     <label className="inline-flex items-center gap-2 text-[14px]">
       <span className="hidden text-muted sm:inline">Sort by</span>
       <select
         value={filters.sort ?? "newest"}
         onChange={(e) =>
-          router.push(
+          navigate(
             `${basePath}${filtersToQuery({ ...filters, sort: e.target.value as CatalogFilters["sort"], page: undefined })}`,
           )
         }
