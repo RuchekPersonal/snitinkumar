@@ -4,7 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { BagIcon, BoxIcon, HomeIcon, CloseIcon, GridIcon, MenuIcon, SwatchIcon, UserIcon } from "@/components/icons";
+import {
+  BagIcon,
+  BoxIcon,
+  HomeIcon,
+  CloseIcon,
+  GridIcon,
+  MenuIcon,
+  ShieldIcon,
+  SwatchIcon,
+  UserIcon,
+} from "@/components/icons";
 import { logoutAction } from "@/app/admin/_actions/auth";
 
 const items = [
@@ -14,6 +24,7 @@ const items = [
   { href: "/admin/categories", label: "Categories", Icon: SwatchIcon },
   { href: "/admin/enquiries", label: "Enquiries", Icon: BagIcon, badge: "enquiries" as const },
   { href: "/admin/customers", label: "Customers", Icon: UserIcon, badge: "customers" as const },
+  { href: "/admin/users", label: "Admin users", Icon: ShieldIcon },
 ];
 
 interface Props {
