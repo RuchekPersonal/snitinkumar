@@ -24,7 +24,7 @@ const items = [
   { href: "/admin/categories", label: "Categories", Icon: SwatchIcon },
   { href: "/admin/enquiries", label: "Enquiries", Icon: BagIcon, badge: "enquiries" as const },
   { href: "/admin/customers", label: "Customers", Icon: UserIcon, badge: "customers" as const },
-  { href: "/admin/users", label: "Admin users", Icon: ShieldIcon },
+  { href: "/admin/users", label: "Admin users", Icon: ShieldIcon, ownerOnly: true },
 ];
 
 interface Props {
@@ -49,29 +49,31 @@ function Sidebar({ name, role, badges, onNavigate }: Props & { onNavigate?: () =
         <p className="mt-1 font-serif text-2xl font-semibold text-white">S. Nitinkumar</p>
       </div>
       <nav className="flex-1 space-y-1 px-3" aria-label="Admin">
-        {items.map(({ href, label, Icon, exact, badge }) => {
-          const active = exact ? pathname === href : pathname.startsWith(href);
-          const count = badge ? badges[badge] : 0;
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={`flex h-11 items-center gap-3 rounded-md px-3 text-[15px] ${
-                active ? "bg-maroon font-semibold text-white" : "hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <Icon width={19} height={19} />
-              <span className="flex-1">{label}</span>
-              {count > 0 && (
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[11px] font-bold text-ink">
-                  {count}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {items
+          .filter((i) => !i.ownerOnly || role === "owner")
+          .map(({ href, label, Icon, exact, badge }) => {
+            const active = exact ? pathname === href : pathname.startsWith(href);
+            const count = badge ? badges[badge] : 0;
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={`flex h-11 items-center gap-3 rounded-md px-3 text-[15px] ${
+                  active ? "bg-maroon font-semibold text-white" : "hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Icon width={19} height={19} />
+                <span className="flex-1">{label}</span>
+                {count > 0 && (
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[11px] font-bold text-ink">
+                    {count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
       </nav>
       <div className="border-t border-white/10 px-5 py-4 text-[13px]">
         <Link href="/" className="block py-1 hover:text-white" target="_blank">

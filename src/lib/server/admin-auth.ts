@@ -55,6 +55,13 @@ export async function requireAdmin(): Promise<Admin> {
   return admin;
 }
 
+/** Owner-only pages and Server Actions (managing admin users); staff are sent to the dashboard. */
+export async function requireOwner(): Promise<Admin> {
+  const admin = await requireAdmin();
+  if (admin.role !== "owner") redirect("/admin");
+  return admin;
+}
+
 /** For admin route handlers: rejects cross-site requests and unauthenticated callers. */
 export async function requireAdminApi(req: Request): Promise<Admin | Response> {
   const origin = req.headers.get("origin");

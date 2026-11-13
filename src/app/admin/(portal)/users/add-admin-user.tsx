@@ -4,7 +4,7 @@ import { useState } from "react";
 import { addAdminUserAction } from "@/app/admin/_actions/users";
 import { btnPrimary, btnSecondary, input, label } from "@/components/admin/ui";
 
-const EMPTY = { name: "", email: "", password: "", confirm: "" };
+const EMPTY = { name: "", email: "", role: "staff", password: "", confirm: "" };
 
 export function AddAdminUser() {
   const [open, setOpen] = useState(false);
@@ -29,7 +29,11 @@ export function AddAdminUser() {
     setOpen(false);
   };
 
-  const field = (k: keyof typeof EMPTY, text: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  const field = (
+    k: Exclude<keyof typeof EMPTY, "role">,
+    text: string,
+    props: React.InputHTMLAttributes<HTMLInputElement> = {},
+  ) => (
     <div>
       <label htmlFor={`a-${k}`} className={label}>
         {text}
@@ -60,12 +64,26 @@ export function AddAdminUser() {
           <form onSubmit={submit} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-lg bg-surface p-6">
             <h2 className="font-serif text-2xl font-semibold">Add admin user</h2>
             <p className="mt-1 text-[13px] text-muted">
-              They can log in to this admin portal straight away with this email and password, and have full access.
-              Share the password with them privately; they can change it under Change password.
+              They can log in to this admin portal straight away with this email and password. Share the password with
+              them privately; they can change it under Change password.
             </p>
             <div className="mt-4 grid gap-3">
               {field("name", "Name", { autoComplete: "off" })}
               {field("email", "Email", { type: "email", autoComplete: "off" })}
+              <div>
+                <label htmlFor="a-role" className={label}>
+                  Role
+                </label>
+                <select
+                  id="a-role"
+                  value={f.role}
+                  onChange={(e) => setF({ ...f, role: e.target.value })}
+                  className={input}
+                >
+                  <option value="staff">Staff — everything except managing admin users</option>
+                  <option value="owner">Owner — full access, including admin users</option>
+                </select>
+              </div>
               {field("password", "Password (10+ characters)", { type: "password", autoComplete: "new-password" })}
               {field("confirm", "Repeat password", { type: "password", autoComplete: "new-password" })}
             </div>
