@@ -8,7 +8,7 @@ export const site = {
   helplineDisplay: "+91 88662 38147",
   helplineTel: "+918866238147",
   email: "imruchekshah@gmail.com",
-  address: "Textile Market, Ring Road, Surat, Gujarat", // placeholder
+  address: "Textile Market, Ring Road, Ahmedabad, Gujarat", // placeholder
   hours: "Mon–Sat 10am–7pm",
   newArrivalDays: 14,
 } as const;

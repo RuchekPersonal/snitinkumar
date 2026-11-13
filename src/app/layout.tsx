@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   keywords: [
     "wholesale kurtis",
     "kurti manufacturer",
-    "kurti wholesaler Surat",
+    "kurti wholesaler Ahmedabad",
     "3 piece suit sets wholesale",
     "rayon kurti wholesale",
   ],

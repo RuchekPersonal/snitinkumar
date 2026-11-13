@@ -9,7 +9,7 @@ const demoViewers: Record<string, Viewer> = {
     role: "approved",
     name: "Priya Shah",
     shopName: "Meera Boutique",
-    city: "Surat",
+    city: "Ahmedabad",
     phone: "+91 99000 11223",
   },
   pending: { role: "pending", name: "Nandini Rao", shopName: "Nandini Fashion House", city: "Hyderabad" },

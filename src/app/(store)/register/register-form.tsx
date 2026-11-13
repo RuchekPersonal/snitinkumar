@@ -15,7 +15,7 @@ const fields = [
     name: "transportPref",
     label: "Preferred transport (optional)",
     wide: true,
-    placeholder: "e.g. VRL Logistics, Surat",
+    placeholder: "e.g. VRL Logistics, Ahmedabad",
   },
 ] as const;
 
