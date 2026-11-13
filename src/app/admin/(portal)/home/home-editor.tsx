@@ -3,17 +3,15 @@
 /* eslint-disable @next/next/no-img-element -- pre-sized images from /api/site-img and static placeholders */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { DEFAULT_HERO, HERO_PLACEHOLDERS, type HomeHero } from "@/lib/home-content";
+import { DEFAULT_HERO, DEFAULT_HERO_IMAGE, highlightText, type HomeHero } from "@/lib/home-content";
 import { removeHeroImageAction, resetHomeHeroAction, saveHomeHeroAction } from "@/app/admin/_actions/site";
 import { shrinkImage } from "@/components/admin/shrink-image";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
 
-const SLOT_NAMES = ["Large tile (tall)", "Top middle", "Top right", "Bottom middle", "Bottom right"];
-
 function PhotoSlot({ position, id, onDone }: { position: number; id: string | null; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const src = id ? `/api/site-img/${id}/thumb.webp` : HERO_PLACEHOLDERS[position];
+  const name = `Slide ${position + 1}`;
 
   async function upload(file: File | undefined) {
     if (!file) return;
@@ -31,18 +29,21 @@ function PhotoSlot({ position, id, onDone }: { position: number; id: string | nu
   }
 
   return (
-    <figure className={`flex flex-col ${position === 0 ? "row-span-2" : ""}`}>
-      <div className="relative flex-1 overflow-hidden rounded-md border border-line bg-sand">
-        <img src={src} alt="" className={`h-full w-full object-cover ${busy ? "opacity-40" : ""}`} />
-        {!id && (
-          <span className="absolute top-1.5 left-1.5 rounded-sm bg-surface/90 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-            Placeholder
-          </span>
+    <figure className="flex flex-col">
+      <div className="relative aspect-video overflow-hidden rounded-md border border-line bg-sand">
+        {id ? (
+          <img
+            src={`/api/site-img/${id}/thumb.webp`}
+            alt=""
+            className={`h-full w-full object-cover ${busy ? "opacity-40" : ""}`}
+          />
+        ) : (
+          <span className="grid h-full place-items-center text-[12px] text-muted">Empty</span>
         )}
         {busy && <span className="absolute inset-0 grid place-items-center text-[13px] font-semibold">Uploading…</span>}
       </div>
       <figcaption className="mt-1.5 text-[12px]">
-        <p className="font-semibold">{SLOT_NAMES[position]}</p>
+        <p className="font-semibold">{name}</p>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
           <label className="cursor-pointer font-semibold text-maroon underline-offset-2 hover:underline">
             {id ? "Replace" : "Upload"}
@@ -52,7 +53,7 @@ function PhotoSlot({ position, id, onDone }: { position: number; id: string | nu
               className="sr-only"
               disabled={busy}
               onChange={(e) => upload(e.target.files?.[0])}
-              aria-label={`${id ? "Replace" : "Upload"} photo: ${SLOT_NAMES[position]}`}
+              aria-label={`${id ? "Replace" : "Upload"} photo: ${name}`}
             />
           </label>
           {id && (
@@ -60,7 +61,7 @@ function PhotoSlot({ position, id, onDone }: { position: number; id: string | nu
               type="button"
               disabled={busy}
               onClick={async () => {
-                if (!confirm("Remove this photo? The placeholder pattern will show instead.")) return;
+                if (!confirm(`Remove the photo from ${name}? The carousel skips empty slides.`)) return;
                 setBusy(true);
                 await removeHeroImageAction(position);
                 setBusy(false);
@@ -92,8 +93,10 @@ export function HomeEditor({
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pending, start] = useTransition();
   const refresh = () => router.refresh();
+  const firstSlide = slots.find(Boolean) ?? null;
+  const filled = slots.filter(Boolean).length;
 
-  const field = (k: "eyebrow" | "headline" | "body" | "mobileLine", text: string, max: number, rows = 1) => (
+  const field = (k: "eyebrow" | "headline" | "body", text: string, max: number, rows = 1) => (
     <div>
       <label htmlFor={`h-${k}`} className={label}>
         {text}{" "}
@@ -127,34 +130,26 @@ export function HomeEditor({
       <div className="space-y-5">
         <Card title="Text">
           <div className="space-y-4 p-5">
-            {field("eyebrow", "Small heading above (e.g. Festive 2026 collection)", 40)}
+            {field("eyebrow", "Small heading above (e.g. The festive edit · 2026)", 40)}
             {field("headline", "Headline", 80)}
-            {field("body", "Paragraph (computer screens)", 280, 3)}
-            {field("mobileLine", "Short line (phones)", 90)}
+            {field("body", "Paragraph", 280, 3)}
             <div>
               <p className={label}>Three highlights</p>
               <div className="grid gap-2 sm:grid-cols-3">
                 {h.stats.map((s, i) => (
-                  <div key={i} className="flex gap-1.5">
-                    <input
-                      value={s.value}
-                      maxLength={12}
-                      aria-label={`Highlight ${i + 1} value`}
-                      onChange={(e) =>
-                        setH({ ...h, stats: h.stats.map((x, n) => (n === i ? { ...x, value: e.target.value } : x)) })
-                      }
-                      className={`${input} w-24 font-semibold`}
-                    />
-                    <input
-                      value={s.label}
-                      maxLength={20}
-                      aria-label={`Highlight ${i + 1} label`}
-                      onChange={(e) =>
-                        setH({ ...h, stats: h.stats.map((x, n) => (n === i ? { ...x, label: e.target.value } : x)) })
-                      }
-                      className={input}
-                    />
-                  </div>
+                  <input
+                    key={i}
+                    value={highlightText(s)}
+                    maxLength={20}
+                    aria-label={`Highlight ${i + 1}`}
+                    onChange={(e) =>
+                      setH({
+                        ...h,
+                        stats: h.stats.map((x, n) => (n === i ? { value: "", label: e.target.value } : x)),
+                      })
+                    }
+                    className={input}
+                  />
                 ))}
               </div>
             </div>
@@ -203,62 +198,71 @@ export function HomeEditor({
           </div>
         </Card>
 
-        <Card title="Hero photos">
+        <Card title="Hero photos (carousel)">
           <div className="p-5">
-            <div className="grid h-[420px] grid-cols-3 grid-rows-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {slots.map((id, i) => (
                 <PhotoSlot key={`${i}-${id}`} position={i} id={id} onDone={refresh} />
               ))}
             </div>
             <p className="mt-3 text-[12px] text-muted">
-              JPG/PNG/WebP up to 5 MB. Photos are cropped to fit each tile automatically — for the large tile use a tall
-              portrait photo. Shown on computer screens; phones show the text card only.
+              JPG/PNG/WebP up to 5 MB. Wide landscape photos work best (16:9, at least 1920 px wide), with the people on
+              the right half — the text sits on the left. The home page slides through the filled slides in order; with
+              none filled it shows the standard festive photo.
             </p>
           </div>
         </Card>
       </div>
 
-      <Card title="Preview (computer screen)" className="2xl:sticky 2xl:top-8 2xl:self-start">
-        <div className="overflow-hidden p-5">
-          <div className="grid grid-cols-[1.05fr_1fr] items-center gap-5 rounded-md bg-cream p-5">
-            <div className="min-w-0">
-              <p className="eyebrow text-[8px] text-gold-600">{h.eyebrow}</p>
-              <p className="mt-1 font-serif text-[22px] leading-[1.05]">{h.headline}</p>
-              <p className="mt-2 line-clamp-4 text-[10px] leading-relaxed text-ink/80">{h.body}</p>
-              <div className="mt-3 flex gap-1.5">
-                <span className="rounded bg-maroon px-2 py-1 text-[9px] font-semibold text-white">Browse catalog</span>
-                <span className="rounded border border-ink/60 px-2 py-1 text-[9px] font-semibold">
-                  WhatsApp enquiry
-                </span>
-              </div>
-              <p className="mt-3 flex gap-3 text-[9px]">
-                {h.stats.map((s, i) => (
-                  <span key={i}>
-                    <b>{s.value}</b> {s.label}
-                  </span>
-                ))}
-              </p>
-            </div>
-            <div className="grid grid-cols-3 grid-rows-2 gap-1.5">
-              {slots.map((id, i) => (
+      <Card title="Preview" className="2xl:sticky 2xl:top-8 2xl:self-start">
+        <div className="space-y-4 overflow-hidden p-5">
+          {(
+            [
+              [
+                "Computer screen",
+                "aspect-[2.2/1] items-center",
+                "bg-[linear-gradient(90deg,rgba(37,24,22,.72)_0%,rgba(54,35,30,.55)_37%,rgba(59,37,29,.03)_72%)]",
+                "ml-[8%] max-w-[55%]",
+              ],
+              [
+                "Phone",
+                "aspect-[3/4] max-w-64 items-end",
+                "bg-[linear-gradient(0deg,rgba(40,25,25,.85),rgba(46,30,29,.4)_60%,rgba(46,30,29,.02))]",
+                "p-4",
+              ],
+            ] as const
+          ).map(([title, box, shade, copy]) => (
+            <div key={title}>
+              <p className="mb-1.5 text-[12px] font-semibold text-muted">{title}</p>
+              <div className={`relative flex overflow-hidden rounded-md bg-[#d7b898] ${box}`}>
                 <img
-                  key={i}
-                  src={id ? `/api/site-img/${id}/thumb.webp` : HERO_PLACEHOLDERS[i]}
+                  src={firstSlide ? `/api/site-img/${firstSlide}/thumb.webp` : DEFAULT_HERO_IMAGE.src}
                   alt=""
-                  className={`w-full rounded object-cover ${i === 0 ? "row-span-2 h-full" : "aspect-[10/9]"}`}
+                  className="absolute inset-0 h-full w-full object-cover object-[59%_center]"
                 />
-              ))}
+                <div className={`absolute inset-0 ${shade}`} />
+                <div className={`relative text-white ${copy}`}>
+                  <p className="text-[7px] tracking-[0.22em] text-brass-200 uppercase">{h.eyebrow}</p>
+                  <p className="mt-1 font-serif text-[22px] leading-[0.99] tracking-[-0.03em]">{h.headline}</p>
+                  <p className="mt-1.5 line-clamp-3 text-[8px] leading-relaxed text-[#f0e8dd]">{h.body}</p>
+                  <p className="mt-1.5 flex flex-wrap gap-x-2 text-[7px] text-[#f1e7da]">
+                    {h.stats
+                      .map(highlightText)
+                      .filter(Boolean)
+                      .map((t, i) => (
+                        <span key={i}>
+                          <span className="text-[#d7bb80]">✳</span> {t}
+                        </span>
+                      ))}
+                  </p>
+                  <span className="mt-2 inline-block bg-brass px-2 py-1 text-[8px] font-semibold text-[#241e19]">
+                    Explore the collection ↗
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-          <p className="mt-4 text-[12px] font-semibold text-muted">On phones</p>
-          <div className="mt-1.5 max-w-64 rounded-md bg-maroon p-4 text-white">
-            <p className="eyebrow text-[8px] text-gold">{h.eyebrow}</p>
-            <p className="mt-1 font-serif text-[18px] leading-tight">{h.headline}</p>
-            <p className="mt-2 text-[10px] text-white/85">{h.mobileLine}</p>
-            <span className="mt-3 inline-block rounded bg-gold px-2 py-1 text-[9px] font-semibold text-ink">
-              Browse catalog
-            </span>
-          </div>
+          ))}
+          {filled > 1 && <p className="text-[12px] text-muted">Showing slide 1 of {filled}.</p>}
         </div>
       </Card>
     </div>

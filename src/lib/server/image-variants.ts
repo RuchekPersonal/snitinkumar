@@ -67,10 +67,9 @@ export async function encodeProductImage(input: Buffer): Promise<EncodedImage> {
 export type SiteImageKind = "hero" | "category";
 
 /** Crop sizes per slot, matched to the tiles they fill on the home page. */
-function siteSizes(kind: SiteImageKind, position: number | null) {
+function siteSizes(kind: SiteImageKind) {
   if (kind === "category") return { full: [800, 600], thumb: [160, 160] } as const; // tile 4:3, pill thumb square
-  if (position === 0) return { full: [720, 1300], thumb: [240, 433] } as const; // tall hero tile
-  return { full: [660, 594], thumb: [220, 198] } as const; // small hero tiles (10:9)
+  return { full: [1920, 1080], thumb: [480, 270] } as const; // hero carousel slide (16:9)
 }
 
 export interface EncodedSiteImage {
@@ -82,14 +81,10 @@ export interface EncodedSiteImage {
   bytes: number;
 }
 
-export async function encodeSiteImage(
-  input: Buffer,
-  kind: SiteImageKind,
-  position: number | null,
-): Promise<EncodedSiteImage> {
+export async function encodeSiteImage(input: Buffer, kind: SiteImageKind): Promise<EncodedSiteImage> {
   const src = sharp(input, { failOn: "error" }).rotate();
   const meta = await src.metadata();
-  const s = siteSizes(kind, position);
+  const s = siteSizes(kind);
   const crop = (w: number, h: number) =>
     src.clone().resize(w, h, { fit: "cover", position: "attention" }).webp({ quality: 80 }).toBuffer();
   const [full, thumb] = await Promise.all([crop(s.full[0], s.full[1]), crop(s.thumb[0], s.thumb[1])]);

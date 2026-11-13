@@ -4,10 +4,11 @@ import { site, siteUrl } from "@/lib/site";
 import { getViewer } from "@/lib/server/session";
 import { listCategories, listFacets, listTrending } from "@/lib/server/catalog";
 import { getHomeContent } from "@/lib/server/site-content";
-import { HERO_PLACEHOLDERS } from "@/lib/home-content";
+import { DEFAULT_HERO_IMAGE, highlightText } from "@/lib/home-content";
+import { HeroCarousel, type HeroSlide } from "@/components/home/hero-carousel";
 import { ProductGrid } from "@/components/product/product-card";
 import { BoxIcon, ChevronRightIcon, SwatchIcon, TruckIcon, WhatsAppIcon } from "@/components/icons";
-import { catalogueRequestText, generalEnquiryText, waLink } from "@/lib/whatsapp";
+import { catalogueRequestText, waLink } from "@/lib/whatsapp";
 
 export default async function HomePage() {
   const viewer = await getViewer();
@@ -19,6 +20,10 @@ export default async function HomePage() {
   ]);
   const { hero, heroImageIds } = home;
   const homeCategories = categories.filter((c) => c.showOnHome);
+  const uploaded = heroImageIds.filter((id): id is string => !!id);
+  const slides: HeroSlide[] = uploaded.length
+    ? uploaded.map((id) => ({ src: `/api/site-img/${id}/full.webp` }))
+    : [DEFAULT_HERO_IMAGE];
 
   const orgJsonLd = {
     "@context": "https://schema.org",
@@ -38,59 +43,51 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd).replace(/</g, "\\u003c") }}
       />
 
-      {/* Hero — mobile: maroon card; desktop: copy + photo mosaic */}
-      <section className="mx-auto max-w-7xl px-4 pt-4 lg:px-6 lg:pt-12">
-        <div className="lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14">
-          <div className="rounded-lg border border-gold/40 bg-maroon p-6 text-white lg:border-0 lg:bg-transparent lg:p-0 lg:text-ink">
-            {hero.eyebrow && <p className="eyebrow text-gold lg:text-gold-600">{hero.eyebrow}</p>}
-            <h1 className="mt-3 font-serif text-[34px] leading-[1.05] sm:text-5xl lg:text-[64px]">{hero.headline}</h1>
-            {hero.mobileLine && <p className="mt-4 text-[14px] text-white/85 lg:hidden">{hero.mobileLine}</p>}
-            {hero.body && (
-              <p className="mt-5 hidden max-w-xl text-[17px] leading-relaxed text-ink/80 lg:block">{hero.body}</p>
+      {/* Hero — photo carousel (Admin → Home page) with the copy on top */}
+      <div className="mx-auto max-w-7xl px-3 pt-3 lg:px-6 lg:pt-8">
+        <HeroCarousel slides={slides}>
+          <div className="px-6 pt-10 pb-8 text-white lg:ml-[8.2%] lg:max-w-[560px] lg:px-0 lg:py-11">
+            {hero.eyebrow && (
+              <p className="text-[10px] font-medium tracking-[0.22em] text-brass-200 uppercase lg:text-[11px]">
+                {hero.eyebrow}
+              </p>
             )}
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href="/catalog"
-                className="inline-flex h-12 items-center rounded-md bg-gold px-6 font-semibold text-ink lg:bg-maroon lg:text-white lg:hover:bg-maroon-700"
-              >
-                Browse catalog
-              </Link>
-              <a
-                href={waLink(generalEnquiryText)}
-                className="hidden h-12 items-center gap-2 rounded-md border border-ink/70 px-5 font-semibold lg:inline-flex"
-              >
-                <WhatsAppIcon /> WhatsApp enquiry
-              </a>
-            </div>
-            <ul className="mt-8 hidden gap-8 text-[14px] lg:flex">
+            <h1 className="mt-3 mb-3 font-serif text-[44px] leading-[0.99] tracking-[-0.035em] sm:text-[49px] lg:mt-5 lg:mb-4 lg:text-[clamp(48px,5.5vw,76px)]">
+              {hero.headline}
+            </h1>
+            {hero.body && (
+              <p className="max-w-[420px] text-[13px] leading-[1.8] text-[#f0e8dd] lg:text-[15px]">{hero.body}</p>
+            )}
+            <ul className="mt-5 flex flex-wrap gap-x-[22px] gap-y-2 text-[11px] text-[#f1e7da] lg:mt-6 lg:text-[13px]">
               {hero.stats
-                .filter((st) => st.value || st.label)
-                .map((st, i) => (
+                .map(highlightText)
+                .filter(Boolean)
+                .map((t, i) => (
                   <li key={i}>
-                    <b>{st.value}</b> {st.label}
+                    <span aria-hidden className="mr-2 text-[#d7bb80]">
+                      ✳
+                    </span>
+                    {t}
                   </li>
                 ))}
             </ul>
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-4 lg:mt-7">
+              <Link
+                href="/catalog"
+                className="inline-flex h-12 items-center gap-2.5 bg-brass px-[22px] text-[14px] font-semibold text-[#241e19] transition hover:-translate-y-0.5 hover:bg-[#d2b77f] hover:shadow-[0_9px_20px_#18110e33]"
+              >
+                Explore the collection <span aria-hidden>↗</span>
+              </Link>
+              <a
+                href={waLink(catalogueRequestText)}
+                className="text-[14px] text-white underline decoration-brass-200 underline-offset-[5px] hover:decoration-white"
+              >
+                Request the wholesale rate card
+              </a>
+            </div>
           </div>
-
-          {/* Hero photos (Admin → Home page); empty slots keep the patterned placeholder. */}
-          <div className="hidden grid-cols-3 grid-rows-2 gap-3 lg:grid" aria-hidden>
-            {heroImageIds.map((id, i) => (
-              <img
-                key={i}
-                src={id ? `/api/site-img/${id}/full.webp` : HERO_PLACEHOLDERS[i]}
-                alt=""
-                fetchPriority={i === 0 ? "high" : undefined}
-                className={
-                  i === 0
-                    ? "row-span-2 h-full w-full rounded-md border-2 border-gold/60 object-cover"
-                    : "aspect-[10/9] w-full rounded-md object-cover"
-                }
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+        </HeroCarousel>
+      </div>
 
       {/* Categories — mobile pills, desktop tiles */}
       <section className="mx-auto mt-10 max-w-7xl px-4 lg:mt-16 lg:px-6" aria-labelledby="cat-h">

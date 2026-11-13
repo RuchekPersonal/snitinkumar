@@ -27,7 +27,7 @@ async function fetchHomeContent(): Promise<HomeContent> {
   return { hero, heroImageIds };
 }
 
-export const getHomeContent = unstable_cache(fetchHomeContent, ["home-content-v1"], {
+export const getHomeContent = unstable_cache(fetchHomeContent, ["home-content-v2"], {
   revalidate: 300,
   tags: [CATALOG_TAG],
 });

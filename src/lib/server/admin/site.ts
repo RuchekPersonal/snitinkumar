@@ -36,11 +36,11 @@ export async function resetHomeHero() {
   refreshCatalog();
 }
 
-/** Puts a photo in hero slot `position` (0 = tall tile), replacing any photo already there. */
+/** Puts a photo in hero carousel slot `position` (slide order), replacing any photo already there. */
 export async function setHeroImage(position: number, file: File): Promise<{ id: string }> {
   await requireAdmin();
   if (!Number.isInteger(position) || position < 0 || position >= HERO_SLOTS) throw new Error("Invalid slot");
-  const encoded = await encodeSiteImage(await readUploadedImage(file), "hero", position);
+  const encoded = await encodeSiteImage(await readUploadedImage(file), "hero");
   const c = db();
   must(await c.from("site_images").delete().eq("kind", "hero").eq("position", position), "clear slot");
   const saved = must(
@@ -63,7 +63,7 @@ export async function removeHeroImage(position: number) {
 
 export async function setCategoryCover(categoryId: number, file: File): Promise<{ id: string }> {
   await requireAdmin();
-  const encoded = await encodeSiteImage(await readUploadedImage(file), "category", null);
+  const encoded = await encodeSiteImage(await readUploadedImage(file), "category");
   const c = db();
   const cat = must(
     await c.from("categories").select("id, cover_image_id").eq("id", categoryId).maybeSingle(),
