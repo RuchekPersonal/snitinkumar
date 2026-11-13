@@ -88,7 +88,7 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
               {product.categoryName} · {product.fabric}
             </span>
           </p>
-          <h1 className="mt-2 font-serif text-[30px] leading-tight font-semibold lg:text-[42px]">{product.name}</h1>
+          <h1 className="mt-2 font-serif text-[30px] leading-tight lg:text-[42px]">{product.name}</h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             {product.ratePaise !== undefined ? (
@@ -172,7 +172,7 @@ export default async function ProductPage({ params }: PageProps<"/product/[code]
 
       {related.length > 0 && (
         <section className="mt-14" aria-labelledby="rel-h">
-          <h2 id="rel-h" className="font-serif text-[26px] font-semibold lg:text-3xl">
+          <h2 id="rel-h" className="font-serif text-[26px] lg:text-3xl">
             More in {product.categoryName}
           </h2>
           <div className="mt-5">

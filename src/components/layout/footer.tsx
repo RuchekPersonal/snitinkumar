@@ -7,7 +7,7 @@ export function Footer() {
     <footer className="mt-16 bg-ink text-[14px] text-gold-50/80">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
         <div>
-          <p className="font-serif text-2xl font-semibold text-white">{site.name}</p>
+          <p className="font-serif text-2xl text-white">{site.name}</p>
           <p className="mt-3 max-w-xs leading-relaxed">
             Manufacturer and wholesale supplier of women&apos;s kurtis, kurti sets and 3-piece suits for retailers
             across India.

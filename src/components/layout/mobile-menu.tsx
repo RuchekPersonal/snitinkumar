@@ -54,7 +54,7 @@ export function MobileMenu({ accountHref, accountLabel }: { accountHref: string;
               onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}
             >
               <div className="flex h-16 items-center justify-between border-b border-line px-4">
-                <span className="font-serif text-xl font-semibold">{site.name}</span>
+                <span className="font-serif text-xl">{site.name}</span>
                 <button
                   onClick={() => setOpen(false)}
                   className="grid h-11 w-11 place-items-center"

@@ -15,7 +15,7 @@ export default async function RegisterPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-6 lg:pt-12">
       <p className="eyebrow text-gold-600">Trade account</p>
-      <h1 className="mt-2 font-serif text-[32px] leading-tight font-semibold lg:text-4xl">Tell us about your shop</h1>
+      <h1 className="mt-2 font-serif text-[32px] leading-tight lg:text-4xl">Tell us about your shop</h1>
       <p className="mt-2 text-[15px] text-muted">
         Mobile <b className="text-ink">{phone.replace(/^\+91(\d{5})(\d{5})$/, "+91 $1 $2")}</b> is verified. We review
         new shops the same day — wholesale rates appear once approved.

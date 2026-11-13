@@ -46,7 +46,7 @@ function Sidebar({ name, role, badges, onNavigate }: Props & { onNavigate?: () =
     <div className="flex h-full flex-col bg-ink text-gold-50/85">
       <div className="px-5 pt-6 pb-5">
         <p className="eyebrow text-[10px] text-gold">Admin portal</p>
-        <p className="mt-1 font-serif text-2xl font-semibold text-white">S. Nitinkumar</p>
+        <p className="mt-1 font-serif text-2xl text-white">S. Nitinkumar</p>
       </div>
       <nav className="flex-1 space-y-1 px-3" aria-label="Admin">
         {items
@@ -122,7 +122,7 @@ export function AdminNav(props: Props) {
         <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center" aria-label="Open menu">
           <MenuIcon width={24} height={24} />
         </button>
-        <span className="font-serif text-xl font-semibold">Admin</span>
+        <span className="font-serif text-xl">Admin</span>
         {props.badges.enquiries > 0 && (
           <Link
             href="/admin/enquiries?status=new"

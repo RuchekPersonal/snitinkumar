@@ -62,7 +62,7 @@ export function AddAdminUser() {
           aria-label="Add admin user"
         >
           <form onSubmit={submit} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-lg bg-surface p-6">
-            <h2 className="font-serif text-2xl font-semibold">Add admin user</h2>
+            <h2 className="font-serif text-2xl">Add admin user</h2>
             <p className="mt-1 text-[13px] text-muted">
               They can log in to this admin portal straight away with this email and password. Share the password with
               them privately; they can change it under Change password.

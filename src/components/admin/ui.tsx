@@ -16,7 +16,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="font-serif text-[30px] leading-tight font-semibold">{title}</h1>
+        <h1 className="font-serif text-[30px] leading-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[13px] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -39,7 +39,7 @@ export function Card({
     <section className={`rounded-lg border border-line bg-surface ${className}`}>
       {(title || action) && (
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          {title && <h2 className="font-serif text-xl font-semibold">{title}</h2>}
+          {title && <h2 className="font-serif text-xl">{title}</h2>}
           {action}
         </div>
       )}

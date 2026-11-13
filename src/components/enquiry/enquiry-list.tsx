@@ -101,9 +101,7 @@ export function EnquiryList({ role, knownShop }: { role: Role; knownShop: string
     return (
       <div className="mx-auto max-w-lg rounded-lg border border-line bg-surface p-8 text-center">
         <p className="eyebrow text-whatsapp">Enquiry ready</p>
-        <h2 className="mt-2 font-serif text-3xl font-semibold">
-          {status.ref ? `Reference ${status.ref}` : "Opening WhatsApp"}
-        </h2>
+        <h2 className="mt-2 font-serif text-3xl">{status.ref ? `Reference ${status.ref}` : "Opening WhatsApp"}</h2>
         <p className="mt-3 text-[15px] text-muted">
           WhatsApp should open with your list filled in. Press <b>Send</b> in WhatsApp to reach us — we reply within
           business hours.
@@ -126,7 +124,7 @@ export function EnquiryList({ role, knownShop }: { role: Role; knownShop: string
   if (lines.length === 0) {
     return (
       <div className="mx-auto max-w-lg rounded-lg border border-line bg-surface p-8 text-center">
-        <h2 className="font-serif text-3xl font-semibold">Your enquiry list is empty</h2>
+        <h2 className="font-serif text-3xl">Your enquiry list is empty</h2>
         <p className="mt-3 text-[15px] text-muted">
           Add designs from the catalogue, then send the list to us on WhatsApp in one tap.
         </p>
@@ -223,7 +221,7 @@ export function EnquiryList({ role, knownShop }: { role: Role; knownShop: string
       </div>
 
       <aside className="mt-6 rounded-lg border border-line bg-surface p-5 lg:sticky lg:top-24 lg:mt-0">
-        <h2 className="font-serif text-2xl font-semibold">Enquiry summary</h2>
+        <h2 className="font-serif text-2xl">Enquiry summary</h2>
         <dl className="mt-4 space-y-2 text-[15px]">
           <div className="flex justify-between">
             <dt className="text-muted">Designs · pieces</dt>

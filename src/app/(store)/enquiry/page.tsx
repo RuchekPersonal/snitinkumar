@@ -19,7 +19,7 @@ export default async function EnquiryPage() {
         <span className="mx-1.5">/</span>
         <span className="text-ink">Enquiry list</span>
       </nav>
-      <h1 className="mt-3 font-serif text-[30px] font-semibold lg:text-4xl">Your enquiry list</h1>
+      <h1 className="mt-3 font-serif text-[30px] lg:text-4xl">Your enquiry list</h1>
       <p className="mt-1 mb-6 text-[14px] text-muted">
         We confirm rate, stock and dispatch on WhatsApp after you send the list.
       </p>

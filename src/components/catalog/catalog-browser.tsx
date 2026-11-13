@@ -123,7 +123,7 @@ export function CatalogBrowser({ items, categories, facets, priced }: Props) {
 
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-[30px] leading-tight font-semibold lg:text-4xl">{title}</h1>
+          <h1 className="font-serif text-[30px] leading-tight lg:text-4xl">{title}</h1>
           <p className="mt-1 text-[14px] text-muted">
             Showing {page.total} {page.total === 1 ? "design" : "designs"}
             {priced ? " · rates per piece" : " · log in to see wholesale rates"}
@@ -163,7 +163,7 @@ export function CatalogBrowser({ items, categories, facets, priced }: Props) {
 
           {page.items.length === 0 ? (
             <div className="rounded-lg border border-line bg-surface p-10 text-center">
-              <p className="font-serif text-2xl font-semibold">No designs match these filters</p>
+              <p className="font-serif text-2xl">No designs match these filters</p>
               <p className="mt-2 text-[14px] text-muted">Try removing a filter, or ask us on WhatsApp.</p>
               <CatalogLink
                 href={basePath}

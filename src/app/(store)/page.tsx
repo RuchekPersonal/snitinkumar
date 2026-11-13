@@ -43,9 +43,7 @@ export default async function HomePage() {
         <div className="lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14">
           <div className="rounded-lg border border-gold/40 bg-maroon p-6 text-white lg:border-0 lg:bg-transparent lg:p-0 lg:text-ink">
             {hero.eyebrow && <p className="eyebrow text-gold lg:text-gold-600">{hero.eyebrow}</p>}
-            <h1 className="mt-3 font-serif text-[34px] leading-[1.05] font-semibold sm:text-5xl lg:text-[64px]">
-              {hero.headline}
-            </h1>
+            <h1 className="mt-3 font-serif text-[34px] leading-[1.05] sm:text-5xl lg:text-[64px]">{hero.headline}</h1>
             {hero.mobileLine && <p className="mt-4 text-[14px] text-white/85 lg:hidden">{hero.mobileLine}</p>}
             {hero.body && (
               <p className="mt-5 hidden max-w-xl text-[17px] leading-relaxed text-ink/80 lg:block">{hero.body}</p>
@@ -97,7 +95,7 @@ export default async function HomePage() {
       {/* Categories — mobile pills, desktop tiles */}
       <section className="mx-auto mt-10 max-w-7xl px-4 lg:mt-16 lg:px-6" aria-labelledby="cat-h">
         <p className="eyebrow hidden text-maroon lg:block">Shop by</p>
-        <h2 id="cat-h" className="font-serif text-[26px] font-semibold lg:mt-1 lg:text-4xl">
+        <h2 id="cat-h" className="font-serif text-[26px] lg:mt-1 lg:text-4xl">
           Popular categories
         </h2>
 
@@ -145,7 +143,7 @@ export default async function HomePage() {
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <span className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
-                <span className="relative font-serif text-2xl font-semibold">{c.name}</span>
+                <span className="relative font-serif text-2xl">{c.name}</span>
                 <span className="relative mt-1 text-[13px] text-white/85">{c.designCount} designs</span>
               </Link>
             ) : (
@@ -154,7 +152,7 @@ export default async function HomePage() {
                 href={`/catalog/${c.slug}`}
                 className="flex h-44 flex-col justify-end rounded-md border border-line bg-surface p-5 transition-colors hover:border-gold"
               >
-                <span className="font-serif text-2xl font-semibold">{c.name}</span>
+                <span className="font-serif text-2xl">{c.name}</span>
                 <span className="mt-1 text-[13px] text-muted">{c.designCount} designs</span>
               </Link>
             ),
@@ -163,7 +161,7 @@ export default async function HomePage() {
             href="/new-arrivals"
             className="flex h-44 flex-col justify-end rounded-md border border-gold/60 bg-maroon p-5 text-white"
           >
-            <span className="font-serif text-2xl font-semibold">New arrivals</span>
+            <span className="font-serif text-2xl">New arrivals</span>
             <span className="mt-1 flex items-center text-[13px] text-white/80">
               This fortnight <ChevronRightIcon width={14} height={14} />
             </span>
@@ -176,7 +174,7 @@ export default async function HomePage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="eyebrow hidden text-maroon lg:block">Best sellers</p>
-            <h2 id="trend-h" className="font-serif text-[26px] font-semibold lg:mt-1 lg:text-4xl">
+            <h2 id="trend-h" className="font-serif text-[26px] lg:mt-1 lg:text-4xl">
               <span className="lg:hidden">Trending</span>
               <span className="hidden lg:inline">Trending wholesale products</span>
             </h2>
@@ -219,7 +217,7 @@ export default async function HomePage() {
                 <Icon />
               </span>
               <div>
-                <h3 className="font-serif text-xl font-semibold sm:mt-4">{t}</h3>
+                <h3 className="font-serif text-xl sm:mt-4">{t}</h3>
                 <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{d}</p>
               </div>
             </div>
@@ -231,7 +229,7 @@ export default async function HomePage() {
       <section className="mx-auto mt-10 max-w-7xl px-4 lg:mt-12 lg:px-6">
         <div className="flex flex-col gap-5 rounded-lg bg-maroon p-6 text-white sm:flex-row sm:items-center sm:justify-between lg:p-8">
           <div>
-            <h2 className="font-serif text-[26px] leading-tight font-semibold lg:text-3xl">
+            <h2 className="font-serif text-[26px] leading-tight lg:text-3xl">
               Want the full catalogue PDF with rates?
             </h2>
             <p className="mt-2 text-[14px] text-white/80">

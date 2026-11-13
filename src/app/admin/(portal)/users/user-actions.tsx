@@ -76,7 +76,7 @@ function ResetPassword({ id, name, onClose }: { id: string; name: string; onClos
       aria-label={`Reset password for ${name}`}
     >
       <form onSubmit={submit} className="w-full max-w-md rounded-lg bg-surface p-6">
-        <h2 className="font-serif text-2xl font-semibold">Reset password</h2>
+        <h2 className="font-serif text-2xl">Reset password</h2>
         <p className="mt-1 text-[13px] text-muted">
           Set a new password for {name}. They are signed out everywhere and any login lock is lifted. Share the new
           password with them privately.

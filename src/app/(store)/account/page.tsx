@@ -51,7 +51,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow text-gold-600">Trade account</p>
-          <h1 className="mt-1 font-serif text-[32px] leading-tight font-semibold">{viewer.shopName ?? "My account"}</h1>
+          <h1 className="mt-1 font-serif text-[32px] leading-tight">{viewer.shopName ?? "My account"}</h1>
         </div>
         <form action={logoutAction}>
           <button className="h-10 rounded-md border border-line bg-surface px-4 text-[14px] font-semibold">
@@ -92,7 +92,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
       </dl>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-semibold">Enquiry history</h2>
+        <h2 className="font-serif text-2xl">Enquiry history</h2>
         {enquiries.length === 0 ? (
           <div className="mt-3 rounded-lg border border-line bg-surface p-6 text-center">
             <p className="text-[15px] text-muted">

@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { site } from "@/lib/site";
 import type { Viewer } from "@/lib/types";
 import { SearchIcon } from "@/components/icons";
 import { Wordmark } from "./wordmark";
-import { CartButton, CartIconButton } from "./cart-button";
+import { CartButton } from "./cart-button";
+import { DesktopNav } from "./desktop-nav";
 import { MobileMenu } from "./mobile-menu";
 
 function SearchBar({ className = "" }: { className?: string }) {
@@ -53,27 +53,15 @@ export function Header({ viewer }: { viewer: Viewer }) {
           <div className="grid h-16 grid-cols-[44px_1fr_44px] items-center px-2">
             <MobileMenu accountHref={accountHref} accountLabel={accountLabel} />
             <Wordmark center />
-            <CartIconButton />
+            <CartButton />
           </div>
         </div>
 
-        {/* Desktop */}
+        {/* Desktop: wordmark · centred links · login, search, cart */}
         <div className="hidden border-b border-line lg:block">
-          <div className="mx-auto flex h-20 max-w-7xl items-center gap-8 px-6">
+          <div className="mx-auto flex h-24 max-w-7xl items-center gap-8 px-6">
             <Wordmark />
-            <SearchBar className="max-w-xl flex-1" />
-            <nav className="ml-auto flex items-center gap-6 text-[15px] font-medium" aria-label="Main">
-              <Link href="/catalog" className="hover:text-maroon">
-                Catalog
-              </Link>
-              <Link href="/new-arrivals" className="hover:text-maroon">
-                New arrivals
-              </Link>
-              <Link href={accountHref} className="hover:text-maroon">
-                {accountLabel}
-              </Link>
-            </nav>
-            <CartButton />
+            <DesktopNav accountHref={accountHref} accountLabel={accountLabel} />
           </div>
         </div>
       </header>

@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
         <section>
           <p className="eyebrow text-gold-600">Trade account</p>
-          <h1 className="mt-2 font-serif text-[34px] leading-tight font-semibold lg:text-5xl">
+          <h1 className="mt-2 font-serif text-[34px] leading-tight lg:text-5xl">
             Register your shop once, reorder in two taps.
           </h1>
           <p className="mt-4 text-[15px] leading-relaxed text-muted">
@@ -73,7 +73,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               Register shop
             </Link>
           </nav>
-          <h2 id="login-h" className="mt-6 font-serif text-2xl font-semibold">
+          <h2 id="login-h" className="mt-6 font-serif text-2xl">
             {register ? "Register your shop" : "Welcome back"}
           </h2>
 

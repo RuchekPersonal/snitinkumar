@@ -1,21 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { site, siteUrl } from "@/lib/site";
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-jakarta",
-  display: "swap",
-});
 
 const defaultTitle = `${site.name} — Wholesale Kurtis, Straight from the Maker`;
 
@@ -59,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-IN" className={`${cormorant.variable} ${jakarta.variable}`}>
+    <html lang="en-IN">
       <body className="min-h-dvh">{children}</body>
     </html>
   );

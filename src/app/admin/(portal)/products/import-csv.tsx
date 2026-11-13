@@ -54,7 +54,7 @@ export function ImportCsv() {
           aria-label="Import CSV"
         >
           <div className="w-full max-w-lg rounded-lg bg-surface p-6">
-            <h2 className="font-serif text-2xl font-semibold">Import products from CSV</h2>
+            <h2 className="font-serif text-2xl">Import products from CSV</h2>
             <p className="mt-2 text-[14px] text-muted">
               Rows are matched by <b>code</b>: existing designs are updated, new codes are created. Start from {}
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV file download */}

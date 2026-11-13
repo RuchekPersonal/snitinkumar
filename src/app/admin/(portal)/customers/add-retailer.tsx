@@ -51,7 +51,7 @@ export function AddRetailer() {
           aria-label="Add retailer"
         >
           <form onSubmit={submit} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg bg-surface p-6">
-            <h2 className="font-serif text-2xl font-semibold">Add retailer</h2>
+            <h2 className="font-serif text-2xl">Add retailer</h2>
             <p className="mt-1 text-[13px] text-muted">
               Added retailers are approved straight away and can log in with this mobile number.
             </p>

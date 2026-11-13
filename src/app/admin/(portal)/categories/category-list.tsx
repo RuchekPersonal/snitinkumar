@@ -175,7 +175,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               </div>
               <CategoryPhoto categoryId={c.id} name={c.name} coverId={c.cover_image_id} />
               <div className="min-w-0 flex-1">
-                <p className={`font-serif text-lg font-semibold ${c.is_visible ? "" : "text-muted"}`}>{c.name}</p>
+                <p className={`font-serif text-lg ${c.is_visible ? "" : "text-muted"}`}>{c.name}</p>
                 <p className="text-[12px] text-muted">
                   /catalog/{c.slug} ·{" "}
                   {c.is_visible ? (c.show_on_home ? "shown on home" : "in catalogue only") : "hidden from store"}

@@ -223,7 +223,7 @@ export function HomeEditor({
           <div className="grid grid-cols-[1.05fr_1fr] items-center gap-5 rounded-md bg-cream p-5">
             <div className="min-w-0">
               <p className="eyebrow text-[8px] text-gold-600">{h.eyebrow}</p>
-              <p className="mt-1 font-serif text-[22px] leading-[1.05] font-semibold">{h.headline}</p>
+              <p className="mt-1 font-serif text-[22px] leading-[1.05]">{h.headline}</p>
               <p className="mt-2 line-clamp-4 text-[10px] leading-relaxed text-ink/80">{h.body}</p>
               <div className="mt-3 flex gap-1.5">
                 <span className="rounded bg-maroon px-2 py-1 text-[9px] font-semibold text-white">Browse catalog</span>
@@ -253,7 +253,7 @@ export function HomeEditor({
           <p className="mt-4 text-[12px] font-semibold text-muted">On phones</p>
           <div className="mt-1.5 max-w-64 rounded-md bg-maroon p-4 text-white">
             <p className="eyebrow text-[8px] text-gold">{h.eyebrow}</p>
-            <p className="mt-1 font-serif text-[18px] leading-tight font-semibold">{h.headline}</p>
+            <p className="mt-1 font-serif text-[18px] leading-tight">{h.headline}</p>
             <p className="mt-2 text-[10px] text-white/85">{h.mobileLine}</p>
             <span className="mt-3 inline-block rounded bg-gold px-2 py-1 text-[9px] font-semibold text-ink">
               Browse catalog

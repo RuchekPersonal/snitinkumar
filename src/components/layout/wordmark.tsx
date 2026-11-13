@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
 
-export function Wordmark({ center = false, light = false }: { center?: boolean; light?: boolean }) {
+export function Wordmark({ center = false }: { center?: boolean }) {
   return (
     <Link href="/" className={`block leading-none ${center ? "text-center" : ""}`} aria-label={`${site.name} home`}>
-      <span className={`eyebrow block text-[9px] sm:text-[10px] ${light ? "text-gold" : "text-maroon"}`}>
+      <span className="block text-[9px] font-medium tracking-[0.28em] text-gold-600 uppercase sm:text-[11px]">
         {site.tagline}
       </span>
-      <span
-        className={`mt-1 block font-serif text-[22px] font-semibold sm:text-2xl ${light ? "text-white" : "text-ink"}`}
-      >
+      <span className="mt-1.5 block font-serif text-[22px] tracking-[-0.01em] text-ink sm:text-[30px]">
         {site.name}
       </span>
     </Link>

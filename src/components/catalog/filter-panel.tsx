@@ -156,7 +156,7 @@ export function FilterPanel(props: Props) {
     return (
       <aside className="sticky top-24 rounded-lg border border-line bg-surface p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-xl font-semibold">Filters</h2>
+          <h2 className="font-serif text-xl">Filters</h2>
           <CatalogLink href={basePath} className="text-[13px] font-semibold text-maroon underline underline-offset-2">
             Clear all
           </CatalogLink>
@@ -188,7 +188,7 @@ export function FilterPanel(props: Props) {
           <button className="absolute inset-0 bg-ink/50" aria-label="Close filters" onClick={() => setOpen(false)} />
           <div className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl bg-cream">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <h2 className="font-serif text-xl font-semibold">Filters</h2>
+              <h2 className="font-serif text-xl">Filters</h2>
               <div className="flex items-center gap-2">
                 <CatalogLink href={basePath} className="px-2 text-[14px] font-semibold text-maroon">
                   Clear all
