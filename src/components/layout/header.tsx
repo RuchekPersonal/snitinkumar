@@ -1,30 +1,8 @@
 import { site } from "@/lib/site";
 import type { Viewer } from "@/lib/types";
-import { SearchIcon } from "@/components/icons";
 import { Wordmark } from "./wordmark";
-import { CartButton } from "./cart-button";
 import { DesktopNav } from "./desktop-nav";
-import { MobileMenu } from "./mobile-menu";
-
-function SearchBar({ className = "" }: { className?: string }) {
-  return (
-    <form action="/catalog" role="search" className={`relative ${className}`}>
-      <SearchIcon
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-        width={18}
-        height={18}
-      />
-      <input
-        type="search"
-        name="q"
-        placeholder="Search by name, code (SN-101) or fabric"
-        aria-label="Search designs"
-        enterKeyHint="search"
-        className="h-11 w-full rounded-lg border border-line bg-surface pr-3 pl-10 text-[15px] placeholder:text-muted/80 focus:border-gold focus:outline-none"
-      />
-    </form>
-  );
-}
+import { MobileBar } from "./mobile-bar";
 
 export function Header({ viewer }: { viewer: Viewer }) {
   const signedIn = !!viewer.retailerId || viewer.role !== "guest";
@@ -48,14 +26,8 @@ export function Header({ viewer }: { viewer: Viewer }) {
 
       {/* Only the compact brand row stays pinned, so phones keep most of the screen for products. */}
       <header className="sticky top-0 z-40 bg-cream/95 backdrop-blur supports-[backdrop-filter]:bg-cream/85">
-        {/* Mobile: menu · wordmark · cart */}
-        <div className="border-b border-line lg:hidden">
-          <div className="grid h-16 grid-cols-[44px_1fr_44px] items-center px-2">
-            <MobileMenu accountHref={accountHref} accountLabel={accountLabel} />
-            <Wordmark center />
-            <CartButton />
-          </div>
-        </div>
+        {/* Mobile: menu · wordmark · search, cart */}
+        <MobileBar accountHref={accountHref} accountLabel={accountLabel} wordmark={<Wordmark center />} />
 
         {/* Desktop: wordmark · centred links · login, search, cart */}
         <div className="hidden border-b border-line lg:block">
@@ -65,10 +37,6 @@ export function Header({ viewer }: { viewer: Viewer }) {
           </div>
         </div>
       </header>
-
-      <div className="px-4 pt-3 lg:hidden">
-        <SearchBar />
-      </div>
     </>
   );
 }
