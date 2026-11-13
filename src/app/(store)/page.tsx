@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element -- decorative static SVG placeholders */
 import Link from "next/link";
 import { site, siteUrl } from "@/lib/site";
 import { getViewer } from "@/lib/server/session";
@@ -6,6 +5,7 @@ import { listCategories, listFacets, listTrending } from "@/lib/server/catalog";
 import { getHomeContent } from "@/lib/server/site-content";
 import { DEFAULT_HERO_IMAGE, highlightText } from "@/lib/home-content";
 import { HeroCarousel, type HeroSlide } from "@/components/home/hero-carousel";
+import { CategoryTile } from "@/components/home/category-tile";
 import { ProductGrid } from "@/components/product/product-card";
 import { BoxIcon, ChevronRightIcon, SwatchIcon, TruckIcon, WhatsAppIcon } from "@/components/icons";
 import { catalogueRequestText, waLink } from "@/lib/whatsapp";
@@ -89,78 +89,49 @@ export default async function HomePage() {
         </HeroCarousel>
       </div>
 
-      {/* Categories — mobile pills, desktop tiles */}
-      <section className="mx-auto mt-10 max-w-7xl px-4 lg:mt-16 lg:px-6" aria-labelledby="cat-h">
-        <p className="eyebrow hidden text-maroon lg:block">Shop by</p>
-        <h2 id="cat-h" className="font-serif text-[26px] lg:mt-1 lg:text-4xl">
-          Popular categories
-        </h2>
-
-        <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 lg:hidden">
-          {homeCategories.map((c, i) => (
-            <Link
-              key={c.slug}
-              href={`/catalog/${c.slug}`}
-              className={`flex shrink-0 items-center gap-2 rounded-full border py-1.5 text-[14px] font-medium ${
-                c.coverImageId ? "pr-4 pl-1.5" : "px-4 py-2.5"
-              } ${i === 0 ? "border-ink bg-ink text-white" : "border-line bg-surface"}`}
-            >
-              {c.coverImageId && (
-                <img
-                  src={`/api/site-img/${c.coverImageId}/thumb.webp`}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              )}
-              {c.shortName}
-            </Link>
-          ))}
+      {/* Categories — photo tiles in the hero's style (photos: Admin → Categories) */}
+      <section className="mx-auto mt-12 max-w-7xl px-4 lg:mt-20 lg:px-6" aria-labelledby="cat-h">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div>
+            <p className="text-[10px] font-medium tracking-[0.22em] text-[#9a7b4e] uppercase lg:text-[11px]">
+              Shop by category
+            </p>
+            <h2 id="cat-h" className="mt-2 font-serif text-[30px] leading-[1.12] tracking-[-0.025em] lg:text-[42px]">
+              Popular categories
+            </h2>
+          </div>
           <Link
-            href="/new-arrivals"
-            className="shrink-0 rounded-full border border-maroon px-4 py-2.5 text-[14px] font-medium text-maroon"
+            href="/catalog"
+            className="border-b border-brass pb-1.5 text-[11px] tracking-[0.12em] whitespace-nowrap uppercase hover:border-ink"
           >
-            New arrivals
+            All {facets.totalDesigns} designs
           </Link>
         </div>
 
-        <div className="mt-6 hidden grid-cols-5 gap-4 lg:grid">
-          {homeCategories.map((c) =>
-            c.coverImageId ? (
-              <Link
-                key={c.slug}
-                href={`/catalog/${c.slug}`}
-                className="group relative flex h-44 flex-col justify-end overflow-hidden rounded-md border border-line p-5 text-white"
-              >
-                <img
-                  src={`/api/site-img/${c.coverImageId}/full.webp`}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                <span className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
-                <span className="relative font-serif text-2xl">{c.name}</span>
-                <span className="relative mt-1 text-[13px] text-white/85">{c.designCount} designs</span>
-              </Link>
-            ) : (
-              <Link
-                key={c.slug}
-                href={`/catalog/${c.slug}`}
-                className="flex h-44 flex-col justify-end rounded-md border border-line bg-surface p-5 transition-colors hover:border-gold"
-              >
-                <span className="font-serif text-2xl">{c.name}</span>
-                <span className="mt-1 text-[13px] text-muted">{c.designCount} designs</span>
-              </Link>
-            ),
-          )}
+        <div className="mt-5 grid grid-cols-2 gap-2.5 lg:mt-7 lg:grid-cols-5 lg:gap-3.5">
+          {homeCategories.map((c, i) => (
+            <CategoryTile
+              key={c.slug}
+              href={`/catalog/${c.slug}`}
+              name={c.name}
+              meta={`${c.designCount} ${c.designCount === 1 ? "design" : "designs"}`}
+              imageId={c.coverImageId}
+              index={i}
+            />
+          ))}
           <Link
             href="/new-arrivals"
-            className="flex h-44 flex-col justify-end rounded-md border border-gold/60 bg-maroon p-5 text-white"
+            className={`group relative flex h-[120px] items-end overflow-hidden rounded-md bg-maroon p-4 text-white lg:h-[270px] lg:p-6 ${
+              homeCategories.length % 2 === 0 ? "col-span-2 lg:col-span-1" : ""
+            }`}
           >
-            <span className="font-serif text-2xl">New arrivals</span>
-            <span className="mt-1 flex items-center text-[13px] text-white/80">
-              This fortnight <ChevronRightIcon width={14} height={14} />
+            <span className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_20%,#caa24b33,transparent_60%)]" />
+            <span className="relative">
+              <span className="block font-serif text-[21px] leading-tight lg:text-[25px]">New arrivals</span>
+              <span className="mt-1.5 flex items-center gap-1 text-[9px] tracking-[0.13em] text-brass-200 uppercase lg:text-[10px]">
+                This fortnight
+                <ChevronRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5" />
+              </span>
             </span>
           </Link>
         </div>
