@@ -132,9 +132,9 @@ export const RetailerInput = z.object({
   address: z.string().trim().max(300),
 });
 
-export async function addRetailer(input: z.infer<typeof RetailerInput>) {
+export async function addRetailer(input: z.infer<typeof RetailerInput>): Promise<{ id: string }> {
   const admin = await requireAdmin();
-  const { error } = await db()
+  const { data, error } = await db()
     .from("retailers")
     .insert({
       shop_name: input.shopName,
@@ -147,9 +147,12 @@ export async function addRetailer(input: z.infer<typeof RetailerInput>) {
       status: "approved",
       approved_by: admin.id,
       approved_at: new Date().toISOString(),
-    });
+    })
+    .select("id")
+    .single();
   if (error?.code === "23505") throw new Error("A retailer with this mobile number already exists");
   if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function exportCustomerRows() {

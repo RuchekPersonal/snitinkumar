@@ -250,3 +250,22 @@ export async function listAllProductCodes(): Promise<{ code: string; updatedAt: 
   const snap = await snapshot();
   return live(snap).map((p) => ({ code: p.code, updatedAt: p.updatedAt }));
 }
+
+/** Internal: every live design with id, rate and stock, for the admin order form. Never sent to retailers. */
+export async function listOrderableProducts() {
+  const snap = await snapshot();
+  return live(snap).map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    categorySlug: p.categorySlug,
+    categoryName: snap.categories.find((c) => c.slug === p.categorySlug)?.name ?? "",
+    fabric: p.fabric,
+    ratePaise: p.ratePaise,
+    stockPcs: p.stockPcs,
+    sizes: p.sizes,
+    coverImageId: p.imageIds[0] ?? null,
+    isNew: isNew(p),
+    createdAt: p.createdAt,
+  }));
+}

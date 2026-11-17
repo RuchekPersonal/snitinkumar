@@ -11,6 +11,7 @@ import {
   CloseIcon,
   GridIcon,
   MenuIcon,
+  ReceiptIcon,
   ShieldIcon,
   SwatchIcon,
   UserIcon,
@@ -22,6 +23,7 @@ const items = [
   { href: "/admin/products", label: "Products", Icon: BoxIcon },
   { href: "/admin/home", label: "Home page", Icon: HomeIcon },
   { href: "/admin/categories", label: "Categories", Icon: SwatchIcon },
+  { href: "/admin/orders", label: "Orders", Icon: ReceiptIcon, badge: "orders" as const },
   { href: "/admin/enquiries", label: "Enquiries", Icon: BagIcon, badge: "enquiries" as const },
   { href: "/admin/customers", label: "Customers", Icon: UserIcon, badge: "customers" as const },
   { href: "/admin/users", label: "Admin users", Icon: ShieldIcon, ownerOnly: true },
@@ -30,7 +32,7 @@ const items = [
 interface Props {
   name: string;
   role: string;
-  badges: { enquiries: number; customers: number };
+  badges: { orders: number; enquiries: number; customers: number };
 }
 
 function Sidebar({ name, role, badges, onNavigate }: Props & { onNavigate?: () => void }) {
@@ -113,12 +115,12 @@ export function AdminNav(props: Props) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 hidden w-60 lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-60 lg:block print:hidden">
         <Sidebar {...props} />
       </aside>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-ink px-2 text-white lg:hidden">
+      <div className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-ink px-2 text-white lg:hidden print:hidden">
         <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center" aria-label="Open menu">
           <MenuIcon width={24} height={24} />
         </button>

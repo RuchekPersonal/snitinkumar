@@ -50,6 +50,7 @@ export function Card({
 
 const statusStyles: Record<string, string> = {
   new: "bg-gold-50 text-[#8a6a1f]",
+  placed: "bg-gold-50 text-[#8a6a1f]",
   confirmed: "bg-[#dfe7f5] text-[#2f4a7a]",
   dispatched: "bg-chip text-chip-ink",
   cancelled: "bg-maroon-50 text-maroon",
@@ -59,12 +60,12 @@ const statusStyles: Record<string, string> = {
   blocked: "bg-maroon-50 text-maroon",
 };
 
-export function StatusChip({ status }: { status: string }) {
+export function StatusChip({ status, label }: { status: string; label?: string }) {
   return (
     <span
       className={`inline-block rounded-full px-2.5 py-0.5 text-[12px] font-semibold capitalize ${statusStyles[status] ?? "bg-cream"}`}
     >
-      {status}
+      {label ?? status}
     </span>
   );
 }

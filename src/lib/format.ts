@@ -1,4 +1,4 @@
-export const SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "3XL"] as const;
+export const SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"] as const;
 
 const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 

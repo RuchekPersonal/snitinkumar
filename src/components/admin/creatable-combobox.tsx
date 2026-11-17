@@ -3,30 +3,37 @@
 import { useId, useState } from "react";
 import { input } from "./ui";
 
-type Fabric = { id: number; name: string };
-type CreateResult = { ok: true; fabric: Fabric } | { ok: false; error: string };
+type Option = { id: number | string; name: string };
+type CreateResult = { ok: true; option: Option } | { ok: false; error: string };
 
 const clean = (s: string) => s.trim().replace(/\s+/g, " ");
 
 /**
- * Type-to-search fabric picker (ARIA combobox). Typing filters the list; a name that is
- * not in it can be added as a new fabric, which is saved at once and selected.
+ * Type-to-search picker (ARIA combobox) for a list that can grow: typing filters it, and a
+ * name that is not in it can be added (e.g. a new fabric), which is saved at once and selected.
  */
-export function FabricCombobox({
+export function CreatableCombobox({
   id,
-  fabrics,
+  options: list,
   value,
   onChange,
   onCreate,
+  noun,
+  placeholder,
+  maxLength = 30,
 }: {
   id: string;
-  fabrics: Fabric[];
+  options: Option[];
   value: string;
   onChange: (id: string) => void;
   onCreate: (name: string) => Promise<CreateResult>;
+  /** "fabric", "trip": used in "+ Add “…” as a new fabric". */
+  noun: string;
+  placeholder?: string;
+  maxLength?: number;
 }) {
   const listId = useId();
-  const selected = fabrics.find((f) => String(f.id) === value);
+  const selected = list.find((f) => String(f.id) === value);
   const [query, setQuery] = useState<string | null>(null); // null = not typing, show the selection
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -34,10 +41,10 @@ export function FabricCombobox({
   const [error, setError] = useState<string | null>(null);
 
   const q = clean(query ?? "");
-  const matches = q ? fabrics.filter((f) => f.name.toLowerCase().includes(q.toLowerCase())) : fabrics;
-  const canAdd = q.length > 0 && !fabrics.some((f) => f.name.toLowerCase() === q.toLowerCase());
-  const options: ({ kind: "fabric"; fabric: Fabric } | { kind: "add" })[] = [
-    ...matches.map((fabric) => ({ kind: "fabric" as const, fabric })),
+  const matches = q ? list.filter((f) => f.name.toLowerCase().includes(q.toLowerCase())) : list;
+  const canAdd = q.length > 0 && !list.some((f) => f.name.toLowerCase() === q.toLowerCase());
+  const options: ({ kind: "item"; item: Option } | { kind: "add" })[] = [
+    ...matches.map((item) => ({ kind: "item" as const, item })),
     ...(canAdd ? [{ kind: "add" as const }] : []),
   ];
   const optionId = (i: number) => `${listId}-${i}`;
@@ -50,8 +57,8 @@ export function FabricCombobox({
   async function choose(i: number) {
     const opt = options[i];
     if (!opt) return;
-    if (opt.kind === "fabric") {
-      onChange(String(opt.fabric.id));
+    if (opt.kind === "item") {
+      onChange(String(opt.item.id));
       setError(null);
       close();
       return;
@@ -64,7 +71,7 @@ export function FabricCombobox({
       setOpen(false); // keep the typed name so it can be corrected; the list would cover the message
       return setError(res.error);
     }
-    onChange(String(res.fabric.id));
+    onChange(String(res.option.id));
     close();
   }
 
@@ -94,8 +101,8 @@ export function FabricCombobox({
         aria-autocomplete="list"
         aria-activedescendant={open && options.length ? optionId(active) : undefined}
         autoComplete="off"
-        maxLength={30}
-        placeholder="Choose or type a new fabric…"
+        maxLength={maxLength}
+        placeholder={placeholder ?? `Choose or type a new ${noun}…`}
         value={query ?? selected?.name ?? ""}
         readOnly={busy}
         onChange={(e) => {
@@ -110,7 +117,7 @@ export function FabricCombobox({
           setActive(
             Math.max(
               0,
-              fabrics.findIndex((f) => String(f.id) === value),
+              list.findIndex((f) => String(f.id) === value),
             ),
           );
         }}
@@ -137,10 +144,10 @@ export function FabricCombobox({
         >
           {options.map((opt, i) => (
             <li
-              key={opt.kind === "fabric" ? opt.fabric.id : "add"}
+              key={opt.kind === "item" ? opt.item.id : "add"}
               id={optionId(i)}
               role="option"
-              aria-selected={opt.kind === "fabric" && String(opt.fabric.id) === value}
+              aria-selected={opt.kind === "item" && String(opt.item.id) === value}
               // mousedown, not click: keeps focus in the input so blur doesn't close the list first
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -150,17 +157,17 @@ export function FabricCombobox({
               className={`cursor-pointer px-3 py-2 text-[14px] ${i === active ? "bg-maroon-50" : ""} ${
                 opt.kind === "add"
                   ? "border-t border-line font-semibold text-maroon"
-                  : String(opt.fabric.id) === value
+                  : String(opt.item.id) === value
                     ? "font-semibold"
                     : ""
               }`}
             >
-              {opt.kind === "fabric" ? opt.fabric.name : `+ Add “${q}” as a new fabric`}
+              {opt.kind === "item" ? opt.item.name : `+ Add “${q}” as a new ${noun}`}
             </li>
           ))}
         </ul>
       )}
-      {busy && <p className="mt-1 text-[12px] text-muted">Adding fabric…</p>}
+      {busy && <p className="mt-1 text-[12px] text-muted">Adding {noun}…</p>}
       {error && <p className="mt-1 text-[12px] font-medium text-maroon">{error}</p>}
     </div>
   );

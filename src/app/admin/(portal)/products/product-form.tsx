@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Lookups } from "@/lib/server/admin/products";
 import { saveProductAction, deleteImageAction, reorderImagesAction } from "@/app/admin/_actions/products";
 import { createColourAction, createFabricAction } from "@/app/admin/_actions/categories";
-import { FabricCombobox } from "@/components/admin/fabric-combobox";
+import { CreatableCombobox } from "@/components/admin/creatable-combobox";
 import { ColourPalette, type ColourDraft } from "@/components/admin/colour-palette";
 import { shrinkImage } from "@/components/admin/shrink-image";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
@@ -208,18 +208,18 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
               </select>
             </Field>
             <Field name="fabricId" text="Fabric" error={errors.fabricId}>
-              <FabricCombobox
+              <CreatableCombobox
                 id="fabricId"
-                fabrics={fabrics}
+                noun="fabric"
+                options={fabrics}
                 value={v.fabricId}
                 onChange={(id) => set("fabricId", id)}
                 onCreate={async (name) => {
                   const res = await createFabricAction(name);
-                  if (res.ok) {
-                    const f = res.fabric;
-                    setFabrics((list) => (list.some((x) => x.id === f.id) ? list : [...list, f]));
-                  }
-                  return res;
+                  if (!res.ok) return res;
+                  const f = res.fabric;
+                  setFabrics((list) => (list.some((x) => x.id === f.id) ? list : [...list, f]));
+                  return { ok: true, option: f };
                 }}
               />
             </Field>
