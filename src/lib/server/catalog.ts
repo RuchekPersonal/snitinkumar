@@ -30,7 +30,7 @@ interface ProductRow {
   stockPcs: number;
   sizes: string[];
   isTrending: boolean;
-  newUntil: string | null;
+  isNew: boolean;
   popularity: number;
   createdAt: string;
   updatedAt: string;
@@ -62,7 +62,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
     client
       .from("product_catalog")
       .select(
-        "id, code, name, description, work, length_in, set_includes, wash_care, rate_paise, moq, stock_pcs, is_trending, new_until, popularity, created_at, updated_at, category_slug, fabric, colour, sizes, image_ids, colours",
+        "id, code, name, description, work, length_in, set_includes, wash_care, rate_paise, moq, stock_pcs, is_trending, is_new, popularity, created_at, updated_at, category_slug, fabric, colour, sizes, image_ids, colours",
       )
       .eq("is_visible", true),
     client
@@ -96,7 +96,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
       stockPcs: p.stock_pcs,
       sizes: p.sizes,
       isTrending: p.is_trending,
-      newUntil: p.new_until,
+      isNew: p.is_new,
       popularity: p.popularity,
       createdAt: p.created_at,
       updatedAt: p.updated_at,
@@ -116,9 +116,8 @@ const snapshot = unstable_cache(fetchSnapshot, ["catalog-snapshot-v3"], {
   tags: [CATALOG_TAG],
 });
 
-// India time, so "new for 14 days" flips at local midnight rather than UTC.
-const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-const isNew = (p: ProductRow) => p.newUntil !== null && p.newUntil >= today();
+// Marked new in admin; stays new until unticked.
+const isNew = (p: ProductRow) => p.isNew;
 
 function toCard(p: ProductRow, snap: Snapshot, viewer: Viewer): ProductCard {
   const card: ProductCard = {
@@ -237,16 +236,14 @@ export async function listRelated(code: string, viewer: Viewer, limit = 4): Prom
     .map((r) => toCard(r, snap, viewer));
 }
 
-/** Exact product-code match for search ("SN-101", "sn101", "101"). */
+/** Exact product-code match for search: any code as typed ("KT-22", "kt 22"), or SN shorthand ("sn101", "101"). */
 export async function findByExactCode(q: string): Promise<string | null> {
-  const m = q
-    .trim()
-    .toUpperCase()
-    .match(/^(?:SN)?-?\s?(\d{3,})$/);
-  if (!m) return null;
-  const code = `SN-${m[1]}`;
+  const typed = q.trim().replace(/\s+/g, "-").toUpperCase();
+  const m = typed.match(/^(?:SN)?-?(\d{3,})$/);
+  const candidates = m ? [typed, `SN-${m[1]}`] : [typed];
   const snap = await snapshot();
-  return live(snap).some((p) => p.code === code) ? code : null;
+  const codes = new Set(live(snap).map((p) => p.code));
+  return candidates.find((c) => codes.has(c)) ?? null;
 }
 
 export async function listAllProductCodes(): Promise<{ code: string; updatedAt: string }[]> {

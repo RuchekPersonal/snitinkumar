@@ -129,7 +129,7 @@ export default async function HomePage() {
             <span className="relative">
               <span className="block font-serif text-[21px] leading-tight lg:text-[25px]">New arrivals</span>
               <span className="mt-1.5 flex items-center gap-1 text-[9px] tracking-[0.13em] text-brass-200 uppercase lg:text-[10px]">
-                This fortnight
+                Just in
                 <ChevronRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </span>

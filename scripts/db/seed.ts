@@ -111,7 +111,7 @@ async function main() {
             stock_pcs: p.stockPcs,
             is_visible: p.isVisible,
             is_trending: p.isTrending,
-            new_until: p.newUntil,
+            is_new: !!p.newUntil,
             popularity: p.popularity,
             created_at: new Date(p.createdAt).toISOString(),
           },

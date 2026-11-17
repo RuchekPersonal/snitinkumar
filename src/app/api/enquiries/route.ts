@@ -1,3 +1,4 @@
+import { PRODUCT_CODE_RE } from "@/lib/product-code";
 import { z } from "zod";
 import { getViewer } from "@/lib/server/session";
 import { createEnquiry } from "@/lib/server/enquiries";
@@ -6,7 +7,7 @@ import { siteUrl } from "@/lib/site";
 
 const Body = z.object({
   lines: z
-    .array(z.object({ code: z.string().regex(/^SN-\d{3,6}$/i), qty: z.number().int().min(1).max(10000) }))
+    .array(z.object({ code: z.string().regex(PRODUCT_CODE_RE), qty: z.number().int().min(1).max(10000) }))
     .min(1)
     .max(100),
   note: z.string().trim().max(500).default(""),

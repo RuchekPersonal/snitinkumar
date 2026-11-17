@@ -6,7 +6,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const metadata: Metadata = pageMeta({
   title: catalogTitles.newArrivals,
-  description: "Fresh kurti and suit-set designs added this fortnight. Min 3 pcs per design · Wholesale only.",
+  description: "Fresh kurti and suit-set designs, just in from our workshop. Min 3 pcs per design · Wholesale only.",
   path: "/new-arrivals",
 });
 

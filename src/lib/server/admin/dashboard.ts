@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "../db";
 import { requireAdmin } from "../admin-auth";
 import { listEnquiries } from "./enquiries";
-import { istDate, must } from "./util";
+import { must } from "./util";
 
 const DAY = 86_400_000;
 
@@ -25,7 +25,7 @@ export async function getDashboard(days = 30) {
       .neq("enquiries.status", "cancelled"),
     c
       .from("products")
-      .select("id, code, name, stock_pcs, low_stock_threshold, is_visible, new_until, product_images(id)")
+      .select("id, code, name, stock_pcs, low_stock_threshold, is_visible, is_new, product_images(id)")
       .is("deleted_at", null),
     c.from("retailers").select("status, created_at"),
     listEnquiries({ limit: 6 }),
@@ -58,10 +58,9 @@ export async function getDashboard(days = 30) {
     stock_pcs: number;
     low_stock_threshold: number;
     is_visible: boolean;
-    new_until: string | null;
+    is_new: boolean;
     product_images: { id: string }[];
   }[];
-  const today = istDate();
   const visible = products.filter((p) => p.is_visible);
 
   // Open enquiries per design, to flag low stock that is already being asked for.
@@ -84,7 +83,7 @@ export async function getDashboard(days = 30) {
       valuePaise: valueNow,
       valueChangePct: valuePrior > 0 ? Math.round(((valueNow - valuePrior) / valuePrior) * 100) : null,
       activeDesigns: visible.length,
-      markedNew: visible.filter((p) => p.new_until && p.new_until >= today).length,
+      markedNew: visible.filter((p) => p.is_new).length,
       hidden: products.length - visible.length,
       retailers: retailers.filter((r) => r.status === "approved").length,
       pendingRetailers: retailers.filter((r) => r.status === "pending").length,

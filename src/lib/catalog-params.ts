@@ -40,6 +40,6 @@ export function filtersToQuery(f: CatalogFilters): string {
 // itself when a filter link changes the page in place).
 export const catalogTitles = {
   all: "Wholesale Kurti Catalogue",
-  newArrivals: "New Arrivals — This Fortnight",
+  newArrivals: "New Arrivals — Latest Kurti Designs",
   category: (name: string) => `${name} — Wholesale Catalogue`,
 };

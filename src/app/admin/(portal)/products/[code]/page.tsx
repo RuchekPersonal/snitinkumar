@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminProduct, getLookups, MAX_PHOTOS } from "@/lib/server/admin/products";
-import { istDate } from "@/lib/server/admin/util";
 import { PageHeader } from "@/components/admin/ui";
 import { ProductForm } from "../product-form";
 import { DeleteProduct, RestoreProduct } from "../delete-restore";
@@ -66,7 +65,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
           stock: String(product.stock_pcs),
           sizeIds: product.sizeIds,
           colourIds: product.colourIds,
-          markNew: !!product.new_until && product.new_until >= istDate(),
+          markNew: product.is_new,
           trending: product.is_trending,
           visible: product.is_visible,
         }}

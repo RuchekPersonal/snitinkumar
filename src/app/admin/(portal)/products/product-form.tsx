@@ -12,6 +12,7 @@ import { ColourPalette, type ColourDraft } from "@/components/admin/colour-palet
 import { shrinkImage } from "@/components/admin/shrink-image";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
 import { sizesLabel } from "@/lib/format";
+import { PRODUCT_CODE_HINT } from "@/lib/product-code";
 
 export interface ProductFormValues {
   code: string;
@@ -190,7 +191,8 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
         <Card title="Basics">
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <Field name="code" text="Product code" error={errors.code}>
-              <input {...text("code")} className={input} autoCapitalize="characters" />
+              <input {...text("code")} className={input} autoCapitalize="characters" maxLength={40} />
+              {!errors.code && <p className="mt-1 text-[12px] text-muted">{PRODUCT_CODE_HINT}</p>}
             </Field>
             <Field name="name" text="Design name" error={errors.name}>
               <input {...text("name")} className={input} />
@@ -373,7 +375,10 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
                 onChange={(e) => set("markNew", e.target.checked)}
                 className="h-5 w-5 accent-maroon"
               />
-              Mark as New arrival for 14 days
+              <span>
+                Mark as New arrival
+                <span className="block text-[12px] text-muted">Shows the NEW tag until you untick this.</span>
+              </span>
             </label>
             <label className="flex items-center gap-2.5 text-[14px] sm:col-span-2">
               <input

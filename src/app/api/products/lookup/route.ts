@@ -1,10 +1,11 @@
+import { PRODUCT_CODE_RE } from "@/lib/product-code";
 import { z } from "zod";
 import { getViewer } from "@/lib/server/session";
 import { getProductsByCodes } from "@/lib/server/catalog";
 
 // Used by the enquiry list to refresh product details. Rates are included only for
 // viewers allowed to see them (the repository strips them otherwise).
-const Body = z.object({ codes: z.array(z.string().regex(/^SN-\d{3,6}$/i)).max(100) });
+const Body = z.object({ codes: z.array(z.string().regex(PRODUCT_CODE_RE)).max(100) });
 
 export async function POST(req: Request) {
   let parsed;

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { requireAdmin } from "../admin-auth";
 import { encodeProductImage } from "../image-variants";
 import { istDate, must, refreshCatalog } from "./util";
+import { normaliseProductCode, PRODUCT_CODE_RE } from "@/lib/product-code";
 
 export const MAX_PHOTOS = 8;
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -57,7 +58,7 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
     await db()
       .from("products")
       .select(
-        "id, code, name, rate_paise, moq, stock_pcs, low_stock_threshold, is_visible, new_until, created_at, deleted_at, categories(slug, name), fabrics(name), product_images(id, position), admins(name)",
+        "id, code, name, rate_paise, moq, stock_pcs, low_stock_threshold, is_visible, is_new, created_at, deleted_at, categories(slug, name), fabrics(name), product_images(id, position), admins(name)",
       )
       .order("code", { ascending: false }),
     "products",
@@ -70,7 +71,7 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
     stock_pcs: number;
     low_stock_threshold: number;
     is_visible: boolean;
-    new_until: string | null;
+    is_new: boolean;
     deleted_at: string | null;
     categories: { slug: string; name: string };
     fabrics: { name: string };
@@ -78,7 +79,6 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
     admins: { name: string } | null;
   }[];
 
-  const today = istDate();
   let items: AdminProductRow[] = rows.map((r) => {
     const imgs = [...r.product_images].sort((a, b) => a.position - b.position);
     return {
@@ -93,7 +93,7 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
       stockPcs: r.stock_pcs,
       lowStock: r.stock_pcs <= r.low_stock_threshold,
       isVisible: r.is_visible,
-      isNew: !!r.new_until && r.new_until >= today,
+      isNew: r.is_new,
       coverImageId: imgs[0]?.id ?? null,
       photoCount: imgs.length,
       deletedAt: r.deleted_at,
@@ -146,7 +146,8 @@ export async function getAdminProduct(code: string) {
 export async function suggestNextCode(): Promise<string> {
   await requireAdmin();
   const rows = must(await db().from("products").select("code"), "codes") as { code: string }[];
-  const max = rows.reduce((m, r) => Math.max(m, Number(r.code.slice(3)) || 0), 100);
+  // Only SN-<number> codes count towards the suggestion; custom codes are ignored.
+  const max = rows.reduce((m, r) => Math.max(m, Number(/^SN-(\d+)$/.exec(r.code)?.[1] ?? 0)), 100);
   return `SN-${max + 1}`;
 }
 
@@ -155,9 +156,13 @@ const rupeesToPaise = (v: unknown) => Math.round(Number(v) * 100);
 export const ProductInput = z.object({
   code: z
     .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^SN-\d{3,6}$/, "Code must look like SN-123"),
+    .transform(normaliseProductCode)
+    .pipe(
+      z
+        .string()
+        .min(1, "Product code is required")
+        .regex(PRODUCT_CODE_RE, "Use letters, numbers, - _ or . (up to 30 characters)"),
+    ),
   name: z.string().trim().min(3, "Design name is required").max(120),
   categoryId: z.coerce.number().int().positive("Pick a category"),
   fabricId: z.coerce.number().int().positive("Pick a fabric"),
@@ -201,17 +206,6 @@ export async function saveProduct(input: ProductInput, id?: string): Promise<{ i
     );
   }
 
-  let newUntil: string | null | undefined;
-  if (input.markNew) {
-    const existing = id ? must(await c.from("products").select("new_until").eq("id", id).single(), "product") : null;
-    newUntil =
-      existing?.new_until && existing.new_until >= istDate()
-        ? existing.new_until
-        : istDate(new Date(Date.now() + 14 * 86_400_000));
-  } else {
-    newUntil = null;
-  }
-
   const row = {
     code: input.code,
     name: input.name,
@@ -229,7 +223,7 @@ export async function saveProduct(input: ProductInput, id?: string): Promise<{ i
     stock_pcs: input.stock,
     is_visible: input.visible,
     is_trending: input.trending,
-    new_until: newUntil,
+    is_new: input.markNew,
   };
 
   const saved = id
@@ -371,7 +365,7 @@ export const CSV_COLUMNS = [
   "sizes",
   "visible",
   "trending",
-  "new_until",
+  "new",
   "work",
   "length_in",
   "set_includes",
@@ -385,7 +379,7 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
     await db()
       .from("products")
       .select(
-        "code, name, rate_paise, mrp_paise, moq, stock_pcs, is_visible, is_trending, new_until, work, length_in, set_includes, wash_care, description, categories(slug), fabrics(name), colours!products_colour_id_fkey(name), product_colours(colours(name, sort_order)), product_sizes(sizes(label, sort_order))",
+        "code, name, rate_paise, mrp_paise, moq, stock_pcs, is_visible, is_trending, is_new, work, length_in, set_includes, wash_care, description, categories(slug), fabrics(name), colours!products_colour_id_fkey(name), product_colours(colours(name, sort_order)), product_sizes(sizes(label, sort_order))",
       )
       .is("deleted_at", null)
       .order("code"),
@@ -417,7 +411,7 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
         sizes,
         r.is_visible ? "yes" : "no",
         r.is_trending ? "yes" : "no",
-        (r.new_until as string) ?? "",
+        r.is_new ? "yes" : "no",
         r.work as string,
         (r.length_in as number) ?? "",
         r.set_includes as string,
@@ -426,6 +420,16 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
       ];
     }),
   ];
+}
+
+/**
+ * "new" column (yes/no). Older exports have "new_until" (a date): treated as new if it is
+ * today or later. With neither column, existing designs keep their flag and new ones are new.
+ */
+function isNewFromCsv(r: Record<string, string>, current: boolean | undefined): boolean {
+  if (r.new !== undefined && r.new.trim() !== "") return /^(yes|y|true|1)$/i.test(r.new.trim());
+  if (r.new_until !== undefined && r.new_until.trim() !== "") return r.new_until.trim() >= istDate();
+  return current ?? true;
 }
 
 export interface ImportReport {
@@ -445,10 +449,10 @@ export async function importProductRecords(records: Record<string, string>[]): P
   const size = new Map(lookups.sizes.map((s) => [s.label.toUpperCase(), s.id]));
   const existing = new Map(
     (
-      must(await db().from("products").select("id, code, new_until, deleted_at"), "codes") as {
+      must(await db().from("products").select("id, code, is_new, deleted_at"), "codes") as {
         id: string;
         code: string;
-        new_until: string | null;
+        is_new: boolean;
         deleted_at: string | null;
       }[]
     ).map((p) => [p.code, p]),
@@ -458,7 +462,7 @@ export async function importProductRecords(records: Record<string, string>[]): P
   const report: ImportReport = { created: 0, updated: 0, errors: [] };
   for (const [i, r] of records.entries()) {
     const line = i + 2;
-    const code = (r.code ?? "").trim().toUpperCase();
+    const code = normaliseProductCode(r.code ?? "");
     try {
       const sizeIds = (r.sizes ?? "")
         .split(/[|;\s]+/)
@@ -508,7 +512,7 @@ export async function importProductRecords(records: Record<string, string>[]): P
         stock: r.stock || 0,
         sizeIds,
         colourIds,
-        markNew: !!(r.new_until && r.new_until >= istDate()) || (!current && !r.new_until),
+        markNew: isNewFromCsv(r, current?.is_new),
         trending: yes(r.trending),
         visible: yes(r.visible),
       });
