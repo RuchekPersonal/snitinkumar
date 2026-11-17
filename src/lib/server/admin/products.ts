@@ -23,6 +23,8 @@ export interface AdminProductRow {
   isNew: boolean;
   coverImageId: string | null;
   photoCount: number;
+  deletedAt: string | null;
+  deletedBy: string | null;
 }
 
 export interface Lookups {
@@ -55,7 +57,7 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
     await db()
       .from("products")
       .select(
-        "id, code, name, rate_paise, moq, stock_pcs, low_stock_threshold, is_visible, new_until, created_at, categories(slug, name), fabrics(name), product_images(id, position)",
+        "id, code, name, rate_paise, moq, stock_pcs, low_stock_threshold, is_visible, new_until, created_at, deleted_at, categories(slug, name), fabrics(name), product_images(id, position), admins(name)",
       )
       .order("code", { ascending: false }),
     "products",
@@ -69,9 +71,11 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
     low_stock_threshold: number;
     is_visible: boolean;
     new_until: string | null;
+    deleted_at: string | null;
     categories: { slug: string; name: string };
     fabrics: { name: string };
     product_images: { id: string; position: number }[];
+    admins: { name: string } | null;
   }[];
 
   const today = istDate();
@@ -92,11 +96,20 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
       isNew: !!r.new_until && r.new_until >= today,
       coverImageId: imgs[0]?.id ?? null,
       photoCount: imgs.length,
+      deletedAt: r.deleted_at,
+      deletedBy: r.admins?.name ?? null,
     };
   });
 
-  const total = items.length;
-  const hidden = items.filter((p) => !p.isVisible).length;
+  // Deleted designs only appear on the Deleted tab, most recently deleted first.
+  const active = items.filter((p) => !p.deletedAt);
+  const total = active.length;
+  const hidden = active.filter((p) => !p.isVisible).length;
+  const deleted = items.length - total;
+  items =
+    opts.show === "deleted"
+      ? items.filter((p) => p.deletedAt).sort((a, b) => b.deletedAt!.localeCompare(a.deletedAt!))
+      : active;
   if (opts.q) {
     const q = opts.q.toLowerCase();
     items = items.filter((p) => `${p.code} ${p.name} ${p.fabric}`.toLowerCase().includes(q));
@@ -106,7 +119,7 @@ export async function listAdminProducts(opts: { q?: string; category?: string; s
   if (opts.show === "visible") items = items.filter((p) => p.isVisible);
   if (opts.show === "low") items = items.filter((p) => p.lowStock);
   if (opts.show === "nophoto") items = items.filter((p) => p.photoCount === 0);
-  return { items, total, hidden };
+  return { items, total, hidden, deleted };
 }
 
 export async function getAdminProduct(code: string) {
@@ -176,8 +189,17 @@ export async function saveProduct(input: ProductInput, id?: string): Promise<{ i
   if (input.mrp !== null && input.mrp < input.rate) throw new Error("Suggested MRP must be at least the rate");
 
   const c = db();
-  const clash = must(await c.from("products").select("id").eq("code", input.code).maybeSingle(), "code check");
-  if (clash && clash.id !== id) throw new Error(`${input.code} is already used by another design`);
+  const clash = must(
+    await c.from("products").select("id, deleted_at").eq("code", input.code).maybeSingle(),
+    "code check",
+  );
+  if (clash && clash.id !== id) {
+    throw new Error(
+      clash.deleted_at
+        ? `${input.code} belongs to a deleted design. Restore it from the Deleted tab, or use another code`
+        : `${input.code} is already used by another design`,
+    );
+  }
 
   let newUntil: string | null | undefined;
   if (input.markNew) {
@@ -239,6 +261,27 @@ export async function saveProduct(input: ProductInput, id?: string): Promise<{ i
 export async function setVisibility(id: string, visible: boolean) {
   await requireAdmin();
   must(await db().from("products").update({ is_visible: visible }).eq("id", id), "visibility");
+  refreshCatalog();
+}
+
+/** Soft delete: the design leaves the store and the product lists but keeps its data. */
+export async function deleteProduct(id: string) {
+  const admin = await requireAdmin();
+  must(
+    await db()
+      .from("products")
+      .update({ deleted_at: new Date().toISOString(), deleted_by: admin.id })
+      .eq("id", id)
+      .is("deleted_at", null),
+    "delete product",
+  );
+  refreshCatalog();
+}
+
+/** Brings a deleted design back with the visibility it had before. */
+export async function restoreProduct(id: string) {
+  await requireAdmin();
+  must(await db().from("products").update({ deleted_at: null, deleted_by: null }).eq("id", id), "restore product");
   refreshCatalog();
 }
 
@@ -344,6 +387,7 @@ export async function exportProductRows(): Promise<(string | number | boolean | 
       .select(
         "code, name, rate_paise, mrp_paise, moq, stock_pcs, is_visible, is_trending, new_until, work, length_in, set_includes, wash_care, description, categories(slug), fabrics(name), colours!products_colour_id_fkey(name), product_colours(colours(name, sort_order)), product_sizes(sizes(label, sort_order))",
       )
+      .is("deleted_at", null)
       .order("code"),
     "export",
   ) as unknown as Record<string, unknown>[];
@@ -401,10 +445,11 @@ export async function importProductRecords(records: Record<string, string>[]): P
   const size = new Map(lookups.sizes.map((s) => [s.label.toUpperCase(), s.id]));
   const existing = new Map(
     (
-      must(await db().from("products").select("id, code, new_until"), "codes") as {
+      must(await db().from("products").select("id, code, new_until, deleted_at"), "codes") as {
         id: string;
         code: string;
         new_until: string | null;
+        deleted_at: string | null;
       }[]
     ).map((p) => [p.code, p]),
   );
@@ -445,6 +490,7 @@ export async function importProductRecords(records: Record<string, string>[]): P
               });
 
       const current = existing.get(code);
+      if (current?.deleted_at) throw new Error("this design is deleted; restore it from the Deleted tab first");
       const parsed = ProductInput.safeParse({
         code,
         name: r.name,

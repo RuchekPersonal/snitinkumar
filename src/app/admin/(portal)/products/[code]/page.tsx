@@ -5,6 +5,7 @@ import { getAdminProduct, getLookups, MAX_PHOTOS } from "@/lib/server/admin/prod
 import { istDate } from "@/lib/server/admin/util";
 import { PageHeader } from "@/components/admin/ui";
 import { ProductForm } from "../product-form";
+import { DeleteProduct, RestoreProduct } from "../delete-restore";
 
 export async function generateMetadata({ params }: PageProps<"/admin/products/[code]">): Promise<Metadata> {
   return { title: `Edit ${(await params).code}` };
@@ -28,7 +29,20 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
             / Edit
           </>
         }
+        actions={product.deleted_at ? undefined : <DeleteProduct id={product.id} code={product.code} variant="page" />}
       />
+      {product.deleted_at && (
+        <div
+          role="status"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-maroon/30 bg-maroon-50 px-4 py-3 text-[14px]"
+        >
+          <span>
+            <strong className="text-maroon">This design is deleted.</strong> It is not shown in the store. Restore it to
+            bring it back with its photos and settings.
+          </span>
+          <RestoreProduct id={product.id} code={product.code} variant="page" />
+        </div>
+      )}
       <ProductForm
         key={product.updated_at}
         lookups={lookups}

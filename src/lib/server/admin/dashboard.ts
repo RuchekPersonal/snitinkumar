@@ -25,7 +25,8 @@ export async function getDashboard(days = 30) {
       .neq("enquiries.status", "cancelled"),
     c
       .from("products")
-      .select("id, code, name, stock_pcs, low_stock_threshold, is_visible, new_until, product_images(id)"),
+      .select("id, code, name, stock_pcs, low_stock_threshold, is_visible, new_until, product_images(id)")
+      .is("deleted_at", null),
     c.from("retailers").select("status, created_at"),
     listEnquiries({ limit: 6 }),
   ]);

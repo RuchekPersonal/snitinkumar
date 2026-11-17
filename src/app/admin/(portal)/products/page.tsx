@@ -5,6 +5,7 @@ import { getLookups, listAdminProducts } from "@/lib/server/admin/products";
 import { rupees } from "@/lib/format";
 import { btnPrimary, btnSecondary, Card, Empty, input, PageHeader, Tabs } from "@/components/admin/ui";
 import { VisibilityToggle } from "./visibility-toggle";
+import { DeleteProduct, RestoreProduct } from "./delete-restore";
 import { ImportCsv } from "./import-csv";
 
 export const metadata: Metadata = { title: "Products" };
@@ -15,10 +16,19 @@ export default async function ProductsPage({ searchParams }: PageProps<"/admin/p
   const q = one(sp.q).slice(0, 60);
   const category = one(sp.category);
   const show = one(sp.show);
-  const [{ items, total, hidden }, lookups] = await Promise.all([
+  const [{ items, total, hidden, deleted }, lookups] = await Promise.all([
     listAdminProducts({ q, category, show }),
     getLookups(),
   ]);
+
+  const isDeleted = show === "deleted";
+  const deletedOn = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    });
 
   const qs = (patch: Record<string, string>) => {
     const p = new URLSearchParams({ ...(q && { q }), ...(category && { category }), ...(show && { show }), ...patch });
@@ -54,6 +64,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/admin/p
           { href: qs({ show: "hidden" }), label: "Hidden", active: show === "hidden" },
           { href: qs({ show: "low" }), label: "Low stock", active: show === "low" },
           { href: qs({ show: "nophoto" }), label: "No photo", active: show === "nophoto" },
+          { href: qs({ show: "deleted" }), label: "Deleted", count: deleted, active: isDeleted },
         ]}
       />
 
@@ -78,7 +89,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/admin/p
         </form>
 
         {items.length === 0 ? (
-          <Empty>No designs match.</Empty>
+          <Empty>{isDeleted && !q && !category ? "No deleted designs." : "No designs match."}</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-[14px]">
@@ -91,7 +102,14 @@ export default async function ProductsPage({ searchParams }: PageProps<"/admin/p
                   <th className="px-3 py-3 text-right font-semibold">Rate</th>
                   <th className="px-3 py-3 text-right font-semibold">MOQ</th>
                   <th className="px-3 py-3 text-right font-semibold">Stock</th>
-                  <th className="px-5 py-3 font-semibold">Visible</th>
+                  {isDeleted ? (
+                    <th className="px-3 py-3 font-semibold">Deleted</th>
+                  ) : (
+                    <th className="px-3 py-3 font-semibold">Visible</th>
+                  )}
+                  <th className="px-5 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -135,8 +153,22 @@ export default async function ProductsPage({ searchParams }: PageProps<"/admin/p
                       {p.stockPcs}
                       {p.lowStock && <span className="font-normal"> · low</span>}
                     </td>
-                    <td className="px-5 py-2.5">
-                      <VisibilityToggle id={p.id} visible={p.isVisible} code={p.code} />
+                    {isDeleted ? (
+                      <td className="px-3 py-2.5 text-[13px] text-muted">
+                        {deletedOn(p.deletedAt!)}
+                        {p.deletedBy && <span className="block text-[12px]">by {p.deletedBy}</span>}
+                      </td>
+                    ) : (
+                      <td className="px-3 py-2.5">
+                        <VisibilityToggle id={p.id} visible={p.isVisible} code={p.code} />
+                      </td>
+                    )}
+                    <td className="px-5 py-2.5 text-right">
+                      {isDeleted ? (
+                        <RestoreProduct id={p.id} code={p.code} />
+                      ) : (
+                        <DeleteProduct id={p.id} code={p.code} />
+                      )}
                     </td>
                   </tr>
                 ))}

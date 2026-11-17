@@ -3,9 +3,11 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import {
+  deleteProduct,
   deleteProductImage,
   ProductInput,
   reorderProductImages,
+  restoreProduct,
   saveProduct,
   setVisibility,
 } from "@/lib/server/admin/products";
@@ -31,6 +33,16 @@ export async function saveProductAction(input: unknown, id?: string): Promise<Sa
 
 export async function setVisibilityAction(id: string, visible: boolean) {
   await setVisibility(z.uuid().parse(id), visible);
+  refresh();
+}
+
+export async function deleteProductAction(id: string) {
+  await deleteProduct(z.uuid().parse(id));
+  refresh();
+}
+
+export async function restoreProductAction(id: string) {
+  await restoreProduct(z.uuid().parse(id));
   refresh();
 }
 
