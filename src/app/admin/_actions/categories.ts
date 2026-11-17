@@ -11,6 +11,7 @@ import {
   saveCategory,
   setColourHex,
   createColour,
+  createFabric,
 } from "@/lib/server/admin/categories";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -60,6 +61,16 @@ export async function createColourAction(
 ): Promise<{ ok: true; colour: { id: number; name: string; hex: string | null } } | { ok: false; error: string }> {
   try {
     return { ok: true, colour: await createColour(String(name), String(hex)) };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export async function createFabricAction(
+  name: string,
+): Promise<{ ok: true; fabric: { id: number; name: string } } | { ok: false; error: string }> {
+  try {
+    return { ok: true, fabric: await createFabric(String(name)) };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }

@@ -196,3 +196,32 @@ export async function createColour(
   refreshCatalog();
   return created as { id: number; name: string; hex: string | null };
 }
+
+/**
+ * Creates a fabric typed into the product form (or returns the existing one with the same
+ * name, ignoring case and extra spaces) so it can be selected straight away.
+ */
+export async function createFabric(nameRaw: string): Promise<{ id: number; name: string }> {
+  await requireAdmin();
+  const name = nameRaw.trim().replace(/\s+/g, " ");
+  if (!name || name.length > 30) throw new Error("Enter a fabric name up to 30 characters");
+  const c = db();
+  // ilike treats % and _ as wildcards, so match case-insensitively in code instead.
+  const all = must(await c.from("fabrics").select("id, name, sort_order"), "fabrics") as {
+    id: number;
+    name: string;
+    sort_order: number;
+  }[];
+  const existing = all.find((f) => f.name.toLowerCase() === name.toLowerCase());
+  if (existing) return { id: existing.id, name: existing.name };
+  const created = must(
+    await c
+      .from("fabrics")
+      .insert({ name, sort_order: all.reduce((m, f) => Math.max(m, f.sort_order), 0) + 1 })
+      .select("id, name")
+      .single(),
+    "create fabric",
+  );
+  refreshCatalog();
+  return created as { id: number; name: string };
+}

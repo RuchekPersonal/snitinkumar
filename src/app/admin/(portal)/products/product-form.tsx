@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Lookups } from "@/lib/server/admin/products";
 import { saveProductAction, deleteImageAction, reorderImagesAction } from "@/app/admin/_actions/products";
-import { createColourAction } from "@/app/admin/_actions/categories";
+import { createColourAction, createFabricAction } from "@/app/admin/_actions/categories";
+import { FabricCombobox } from "@/components/admin/fabric-combobox";
 import { ColourPalette, type ColourDraft } from "@/components/admin/colour-palette";
 import { shrinkImage } from "@/components/admin/shrink-image";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
@@ -72,8 +73,9 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [photos, setPhotos] = useState<Photo[]>(images.map((i) => ({ kind: "saved", id: i.id })));
-  // Colours can be created from this form, so keep a local copy of the list.
+  // Colours and fabrics can be created from this form, so keep local copies of the lists.
   const [colours, setColours] = useState(lookups.colours);
+  const [fabrics, setFabrics] = useState(lookups.fabrics);
   const [newColour, setNewColour] = useState<ColourDraft | null>(null);
   const [colourError, setColourError] = useState<string | null>(null);
   const [addingColour, setAddingColour] = useState(false);
@@ -102,7 +104,7 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
     [lookups.sizes, v.sizeIds],
   );
   const previewColours = colours.filter((c) => String(c.id) === v.colourId || v.colourIds.includes(c.id));
-  const fabricName = lookups.fabrics.find((f) => String(f.id) === v.fabricId)?.name ?? "Fabric";
+  const fabricName = fabrics.find((f) => String(f.id) === v.fabricId)?.name ?? "Fabric";
   const cover = photos[0];
 
   function addFiles(files: FileList | null) {
@@ -204,14 +206,20 @@ export function ProductForm({ lookups, initial, productId, images, maxPhotos }: 
               </select>
             </Field>
             <Field name="fabricId" text="Fabric" error={errors.fabricId}>
-              <select {...text("fabricId")} className={input}>
-                <option value="">Choose…</option>
-                {lookups.fabrics.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+              <FabricCombobox
+                id="fabricId"
+                fabrics={fabrics}
+                value={v.fabricId}
+                onChange={(id) => set("fabricId", id)}
+                onCreate={async (name) => {
+                  const res = await createFabricAction(name);
+                  if (res.ok) {
+                    const f = res.fabric;
+                    setFabrics((list) => (list.some((x) => x.id === f.id) ? list : [...list, f]));
+                  }
+                  return res;
+                }}
+              />
             </Field>
             <Field name="colourId" text="Primary colour" error={errors.colourId}>
               <select {...text("colourId")} className={input}>
