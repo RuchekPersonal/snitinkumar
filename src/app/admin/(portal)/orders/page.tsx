@@ -32,7 +32,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
     <>
       <PageHeader
         title="Orders"
-        subtitle={`${counts.placed} to dispatch · ${totals.sets} sets · ${totals.pcs} pcs · ${rupees(totals.valuePaise)} (not counting cancelled)`}
+        subtitle={`${counts.open} to dispatch · ${totals.sets} sets · ${totals.pcs} pcs · ${rupees(totals.valuePaise)} (not counting cancelled)`}
         actions={
           <>
             <Link href="/admin/orders/trips" className={btnSecondary}>
@@ -54,10 +54,16 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
       <Tabs
         tabs={[
           {
-            href: `/admin/orders${qs({ status: "placed" })}`,
+            href: `/admin/orders${qs({ status: "open" })}`,
             label: "To dispatch",
-            count: counts.placed,
-            active: f.status === "placed",
+            count: counts.open,
+            active: f.status === "open",
+          },
+          {
+            href: `/admin/orders${qs({ status: "partial" })}`,
+            label: "Part dispatched",
+            count: counts.partial,
+            active: f.status === "partial",
           },
           {
             href: `/admin/orders${qs({ status: "dispatched" })}`,
@@ -166,7 +172,17 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
                     <td className="px-3 py-3 text-muted">{o.takenBy ?? "—"}</td>
                     <td className="px-5 py-3">
                       <StatusChip status={o.status} label={ORDER_STATUS_LABEL[o.status]} />
-                      {o.dispatchedAt && <span className="block text-[12px] text-muted">{date(o.dispatchedAt)}</span>}
+                      {o.status === "partial" && (
+                        <span className="block text-[12px] text-muted">
+                          {o.sentSets} of {o.sets} sets sent
+                        </span>
+                      )}
+                      {o.dispatchedAt && (
+                        <span className="block text-[12px] text-muted">
+                          {o.status === "partial" ? "last " : ""}
+                          {date(`${o.dispatchedAt}T00:00:00+05:30`)}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

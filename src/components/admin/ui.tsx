@@ -51,6 +51,7 @@ export function Card({
 const statusStyles: Record<string, string> = {
   new: "bg-gold-50 text-[#8a6a1f]",
   placed: "bg-gold-50 text-[#8a6a1f]",
+  partial: "bg-[#dfe7f5] text-[#2f4a7a]",
   confirmed: "bg-[#dfe7f5] text-[#2f4a7a]",
   dispatched: "bg-chip text-chip-ink",
   cancelled: "bg-maroon-50 text-maroon",

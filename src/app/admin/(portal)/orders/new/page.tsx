@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/admin-auth";
-import { getOrderFormData } from "@/lib/server/admin/orders";
+import { getOrderFormData, getRepeatOrder, ORDER_REF_RE } from "@/lib/server/admin/orders";
 import { listCategories } from "@/lib/server/catalog";
 import { PageHeader } from "@/components/admin/ui";
 import { OrderBuilder } from "./order-builder";
 
 export const metadata: Metadata = { title: "New order" };
 
-export default async function NewOrderPage() {
+export default async function NewOrderPage({ searchParams }: PageProps<"/admin/orders/new">) {
   const admin = await requireAdmin();
-  const [data, categories] = await Promise.all([getOrderFormData(), listCategories()]);
+  const raw = (await searchParams).repeat;
+  const repeatRef = (Array.isArray(raw) ? raw[0] : (raw ?? "")).toUpperCase();
+  const [data, categories, repeat] = await Promise.all([
+    getOrderFormData(),
+    listCategories(),
+    ORDER_REF_RE.test(repeatRef) ? getRepeatOrder(repeatRef) : Promise.resolve(null),
+  ]);
   return (
     <>
       <PageHeader
@@ -26,6 +32,7 @@ export default async function NewOrderPage() {
       />
       <OrderBuilder
         adminId={admin.id}
+        repeat={repeat}
         customers={data.customers}
         trips={data.trips}
         products={data.products}

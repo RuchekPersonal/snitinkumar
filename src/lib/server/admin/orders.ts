@@ -10,8 +10,11 @@ import { must } from "./util";
 // at the moment the order is placed, copied onto each line so later price changes or
 // deleted designs never alter an order.
 
-export const ORDER_STATUSES = ["placed", "dispatched", "cancelled"] as const;
+// placed: nothing sent yet · partial: some sets sent · dispatched: everything sent.
+export const ORDER_STATUSES = ["placed", "partial", "dispatched", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+/** Still has sets to send. */
+export const OPEN_STATUSES: OrderStatus[] = ["placed", "partial"];
 export const ORDER_REF_RE = /^ORD-\d+$/;
 
 export type OrderableProduct = Awaited<ReturnType<typeof listOrderableProducts>>[number];
@@ -24,6 +27,7 @@ export interface OrderCustomer {
   mobile: string;
   transportPref: string;
   status: "approved" | "pending";
+  lastOrder: { ref: string; createdAt: string; designs: number } | null;
 }
 
 export interface Trip {
@@ -35,7 +39,7 @@ export interface Trip {
 export async function getOrderFormData() {
   await requireAdmin();
   const c = db();
-  const [retailers, trips, products] = await Promise.all([
+  const [retailers, trips, products, recent] = await Promise.all([
     c
       .from("retailers")
       .select("id, shop_name, owner_name, city, mobile, transport_pref, status")
@@ -43,7 +47,24 @@ export async function getOrderFormData() {
       .order("shop_name"),
     c.from("trips").select("id, name").order("created_at", { ascending: false }),
     listOrderableProducts(),
+    c
+      .from("orders")
+      .select("ref, retailer_id, created_at, order_items(count)")
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(2000),
   ]);
+  const lastOrder = new Map<string, OrderCustomer["lastOrder"]>();
+  for (const o of must(recent, "recent orders") as unknown as {
+    ref: string;
+    retailer_id: string;
+    created_at: string;
+    order_items: { count: number }[];
+  }[]) {
+    if (!lastOrder.has(o.retailer_id)) {
+      lastOrder.set(o.retailer_id, { ref: o.ref, createdAt: o.created_at, designs: o.order_items[0]?.count ?? 0 });
+    }
+  }
   const customers: OrderCustomer[] = (
     must(retailers, "retailers") as {
       id: string;
@@ -62,6 +83,7 @@ export async function getOrderFormData() {
     mobile: r.mobile,
     transportPref: r.transport_pref,
     status: r.status,
+    lastOrder: lastOrder.get(r.id) ?? null,
   }));
   return {
     customers,
@@ -183,6 +205,42 @@ export async function createOrder(input: OrderInput): Promise<{ ref: string }> {
   return { ref: order.ref };
 }
 
+/**
+ * The lines of a past order, to start a new order from. Designs no longer in the store
+ * are left out (and counted); sizes a design no longer comes in are dropped.
+ */
+export async function getRepeatOrder(ref: string) {
+  await requireAdmin();
+  if (!ORDER_REF_RE.test(ref)) return null;
+  const c = db();
+  const row = must(
+    await c
+      .from("orders")
+      .select("ref, retailer_id, order_items(position, product_id, sizes, sets)")
+      .eq("ref", ref)
+      .maybeSingle(),
+    "order",
+  ) as {
+    ref: string;
+    retailer_id: string;
+    order_items: { position: number; product_id: string | null; sizes: string[]; sets: number }[];
+  } | null;
+  if (!row) return null;
+  const products = new Map((await listOrderableProducts()).map((p) => [p.id, p]));
+  const lines: { productId: string; sizes: string[]; sets: number }[] = [];
+  let skipped = 0;
+  for (const l of [...row.order_items].sort((a, b) => a.position - b.position)) {
+    const p = l.product_id ? products.get(l.product_id) : undefined;
+    if (!p) {
+      skipped++;
+      continue;
+    }
+    const sizes = p.sizes.filter((s) => l.sizes.includes(s));
+    lines.push({ productId: p.id, sizes: sizes.length ? sizes : p.sizes, sets: l.sets });
+  }
+  return { ref: row.ref, retailerId: row.retailer_id, lines, skipped };
+}
+
 // ---------------------------------------------------------------- reading
 
 export interface OrderSummary {
@@ -196,6 +254,7 @@ export interface OrderSummary {
   tripId: string | null;
   designs: number;
   sets: number;
+  sentSets: number;
   pcs: number;
   valuePaise: number;
   takenBy: string | null;
@@ -216,11 +275,11 @@ type ListRow = {
   retailers: { shop_name: string; owner_name: string; city: string };
   trips: { name: string } | null;
   admins: { name: string } | null;
-  order_items: { count: number }[];
+  order_items: { sets: number; dispatched_sets: number }[];
 };
 
 const LIST_SELECT =
-  "id, ref, status, trip_id, total_sets, total_pcs, total_paise, created_at, dispatched_at, retailers(shop_name, owner_name, city), trips(name), admins!orders_taken_by_fkey(name), order_items(count)";
+  "id, ref, status, trip_id, total_sets, total_pcs, total_paise, created_at, dispatched_at, retailers(shop_name, owner_name, city), trips(name), admins!orders_taken_by_fkey(name), order_items(sets, dispatched_sets)";
 
 const toSummary = (r: ListRow): OrderSummary => ({
   id: r.id,
@@ -231,8 +290,9 @@ const toSummary = (r: ListRow): OrderSummary => ({
   city: r.retailers.city,
   trip: r.trips?.name ?? null,
   tripId: r.trip_id,
-  designs: r.order_items[0]?.count ?? 0,
+  designs: r.order_items.length,
   sets: r.total_sets,
+  sentSets: r.order_items.reduce((n, i) => n + i.dispatched_sets, 0),
   pcs: r.total_pcs,
   valuePaise: Number(r.total_paise),
   takenBy: r.admins?.name ?? null,
@@ -267,10 +327,18 @@ export async function listOrders(f: OrderFilters) {
     rows = rows.filter((o) => `${o.ref} ${o.shop} ${o.owner} ${o.city}`.toLowerCase().includes(needle));
   }
   // Tab counts follow the other filters, so they always add up to what the tabs show.
-  const counts = { all: rows.length, placed: 0, dispatched: 0, cancelled: 0 };
-  for (const o of rows) counts[o.status]++;
-  const status = (ORDER_STATUSES as readonly string[]).includes(f.status ?? "") ? (f.status as OrderStatus) : null;
-  const items = status ? rows.filter((o) => o.status === status) : rows;
+  const counts = { all: rows.length, open: 0, placed: 0, partial: 0, dispatched: 0, cancelled: 0 };
+  for (const o of rows) {
+    counts[o.status]++;
+    if (OPEN_STATUSES.includes(o.status)) counts.open++;
+  }
+  // "open" = everything with sets still to send (placed + part dispatched).
+  const items =
+    f.status === "open"
+      ? rows.filter((o) => OPEN_STATUSES.includes(o.status))
+      : (ORDER_STATUSES as readonly string[]).includes(f.status ?? "")
+        ? rows.filter((o) => o.status === f.status)
+        : rows;
   const live = items.filter((o) => o.status !== "cancelled");
   return {
     items,
@@ -290,7 +358,7 @@ export async function listTrips() {
 
 /** Orders waiting for dispatch, for the sidebar badge. */
 export async function countOrdersToDispatch(): Promise<number> {
-  const { count } = await db().from("orders").select("id", { count: "exact", head: true }).eq("status", "placed");
+  const { count } = await db().from("orders").select("id", { count: "exact", head: true }).in("status", OPEN_STATUSES);
   return count ?? 0;
 }
 
@@ -302,7 +370,7 @@ export async function getOrder(ref: string) {
     await c
       .from("orders")
       .select(
-        "id, ref, status, trip_id, note, transport, total_sets, total_pcs, total_paise, created_at, dispatched_at, dispatch_transport, dispatch_lr, retailers(id, shop_name, owner_name, city, state, mobile, gstin, address, pincode), trips(name), admins!orders_taken_by_fkey(name), order_items(position, product_id, code_snapshot, name_snapshot, rate_paise_snapshot, sizes, sets, pcs, products(product_images(id, position)))",
+        "id, ref, status, trip_id, note, transport, total_sets, total_pcs, total_paise, created_at, dispatched_at, retailers(id, shop_name, owner_name, city, state, mobile, gstin, address, pincode), trips(name), admins!orders_taken_by_fkey(name), order_items(id, position, product_id, code_snapshot, name_snapshot, rate_paise_snapshot, sizes, sets, pcs, dispatched_sets, products(product_images(id, position))), order_dispatches(id, dispatched_on, transport, lr, note, created_at, admins(name), order_dispatch_items(order_item_id, sets))",
       )
       .eq("ref", ref)
       .maybeSingle(),
@@ -319,8 +387,6 @@ export async function getOrder(ref: string) {
     total_paise: number;
     created_at: string;
     dispatched_at: string | null;
-    dispatch_transport: string;
-    dispatch_lr: string;
     retailers: {
       id: string;
       shop_name: string;
@@ -335,6 +401,7 @@ export async function getOrder(ref: string) {
     trips: { name: string } | null;
     admins: { name: string } | null;
     order_items: {
+      id: string;
       position: number;
       product_id: string | null;
       code_snapshot: string;
@@ -343,10 +410,23 @@ export async function getOrder(ref: string) {
       sizes: string[];
       sets: number;
       pcs: number;
+      dispatched_sets: number;
       products: { product_images: { id: string; position: number }[] } | null;
+    }[];
+    order_dispatches: {
+      id: string;
+      dispatched_on: string;
+      transport: string;
+      lr: string;
+      note: string;
+      created_at: string;
+      admins: { name: string } | null;
+      order_dispatch_items: { order_item_id: string; sets: number }[];
     }[];
   } | null;
   if (!row) return null;
+  const codeOf = new Map(row.order_items.map((i) => [i.id, i.code_snapshot]));
+  const positionOf = new Map(row.order_items.map((i) => [i.id, i.position]));
 
   const events = must(
     await c
@@ -376,11 +456,26 @@ export async function getOrder(ref: string) {
     valuePaise: Number(row.total_paise),
     createdAt: row.created_at,
     takenBy: row.admins?.name ?? null,
-    dispatch: { date: row.dispatched_at, transport: row.dispatch_transport, lr: row.dispatch_lr },
+    lastDispatchedOn: row.dispatched_at,
+    sentSets: row.order_items.reduce((n, i) => n + i.dispatched_sets, 0),
     customer: row.retailers,
+    dispatches: [...row.order_dispatches]
+      .sort((a, b) => a.dispatched_on.localeCompare(b.dispatched_on) || a.created_at.localeCompare(b.created_at))
+      .map((d) => ({
+        id: d.id,
+        on: d.dispatched_on,
+        transport: d.transport,
+        lr: d.lr,
+        note: d.note,
+        by: d.admins?.name ?? null,
+        items: [...d.order_dispatch_items]
+          .sort((a, b) => (positionOf.get(a.order_item_id) ?? 0) - (positionOf.get(b.order_item_id) ?? 0))
+          .map((i) => ({ code: codeOf.get(i.order_item_id) ?? "?", sets: i.sets })),
+      })),
     lines: [...row.order_items]
       .sort((a, b) => a.position - b.position)
       .map((l) => ({
+        id: l.id,
         productId: l.product_id,
         code: l.code_snapshot,
         name: l.name_snapshot,
@@ -388,6 +483,7 @@ export async function getOrder(ref: string) {
         sizes: l.sizes,
         sets: l.sets,
         pcs: l.pcs,
+        sentSets: l.dispatched_sets,
         coverImageId: [...(l.products?.product_images ?? [])].sort((a, b) => a.position - b.position)[0]?.id ?? null,
       })),
     events,
@@ -402,30 +498,75 @@ export const DispatchInput = z.object({
   transport: z.string().trim().max(120),
   lr: z.string().trim().max(60),
   note: z.string().trim().max(300),
+  /** Sets to send now per order line; lines with 0 are left out. */
+  items: z
+    .array(z.object({ itemId: z.uuid(), sets: z.number().int().min(0).max(10000) }))
+    .max(500)
+    .transform((items) => items.filter((i) => i.sets > 0))
+    .refine((items) => items.length > 0, "Enter the sets to send for at least one design")
+    .refine((items) => new Set(items.map((i) => i.itemId)).size === items.length, "A design is listed twice"),
 });
 
-async function changeStatus(
-  id: string,
-  from: OrderStatus[],
-  to: OrderStatus,
-  patch: Record<string, unknown>,
-  note: string,
-) {
+/** Records one shipment (all or part of what is left). Locking and limits are enforced in the database. */
+export async function dispatchOrder(id: string, d: z.infer<typeof DispatchInput>) {
+  const admin = await requireAdmin();
+  const sets = d.items.reduce((n, i) => n + i.sets, 0);
+  const note = [
+    `${sets} ${sets === 1 ? "set" : "sets"}`,
+    d.transport && `via ${d.transport}`,
+    d.lr && `LR ${d.lr}`,
+    d.note,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // The database explains a refusal in plain words ("more sets than are left…"), so pass it on as is.
+  const { error } = await db().rpc("order_dispatch", {
+    p_order: id,
+    p_admin: admin.id,
+    p_on: d.date,
+    p_transport: d.transport,
+    p_lr: d.lr,
+    p_note: d.note,
+    p_event_note: note,
+    p_items: d.items.map((i) => ({ item: i.itemId, sets: i.sets })),
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Removes one shipment (entered by mistake); its sets go back to "to send". */
+export async function undoDispatch(dispatchId: string) {
+  const admin = await requireAdmin();
+  const c = db();
+  const d = must(
+    await c.from("order_dispatches").select("dispatched_on, lr").eq("id", dispatchId).maybeSingle(),
+    "dispatch",
+  ) as { dispatched_on: string; lr: string } | null;
+  if (!d) throw new Error("That dispatch was already removed");
+  const { error } = await c.rpc("order_undo_dispatch", {
+    p_dispatch: dispatchId,
+    p_admin: admin.id,
+    p_event_note: `Removed the dispatch of ${new Date(`${d.dispatched_on}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      timeZone: "Asia/Kolkata",
+    })}${d.lr ? ` (LR ${d.lr})` : ""}`,
+  });
+  if (error) throw new Error(error.message);
+}
+
+async function changeStatus(id: string, from: OrderStatus[], to: OrderStatus, note: string, blocked: string) {
   const admin = await requireAdmin();
   const c = db();
   const current = must(await c.from("orders").select("status").eq("id", id).maybeSingle(), "order") as {
     status: OrderStatus;
   } | null;
   if (!current) throw new Error("Order not found");
-  if (!from.includes(current.status)) throw new Error(`This order is already ${current.status}`);
-  must(
-    await c
-      .from("orders")
-      .update({ status: to, ...patch })
-      .eq("id", id)
-      .eq("status", current.status),
+  if (!from.includes(current.status)) throw new Error(blocked);
+  const updated = must(
+    await c.from("orders").update({ status: to }).eq("id", id).eq("status", current.status).select("id"),
     "update order",
-  );
+  ) as { id: string }[];
+  if (!updated.length) throw new Error("Someone else just changed this order. Reload and try again.");
   must(
     await c
       .from("order_events")
@@ -434,30 +575,19 @@ async function changeStatus(
   );
 }
 
-export async function markDispatched(id: string, d: z.infer<typeof DispatchInput>) {
-  const parts = [d.transport && `via ${d.transport}`, d.lr && `LR ${d.lr}`, d.note].filter(Boolean).join(" · ");
+/** Only before anything is sent; for a part-dispatched order, remove its dispatches first. */
+export async function cancelOrder(id: string, reason: string) {
   await changeStatus(
     id,
     ["placed"],
-    "dispatched",
-    { dispatched_at: d.date, dispatch_transport: d.transport, dispatch_lr: d.lr },
-    parts,
+    "cancelled",
+    reason,
+    "Only orders with nothing dispatched can be cancelled. Remove the dispatches first.",
   );
 }
 
-export async function cancelOrder(id: string, reason: string) {
-  await changeStatus(id, ["placed"], "cancelled", {}, reason);
-}
-
-/** Undo a dispatch or a cancellation; dispatch details are cleared. */
 export async function reopenOrder(id: string) {
-  await changeStatus(
-    id,
-    ["dispatched", "cancelled"],
-    "placed",
-    { dispatched_at: null, dispatch_transport: "", dispatch_lr: "" },
-    "",
-  );
+  await changeStatus(id, ["cancelled"], "placed", "", "Only cancelled orders can be reopened");
 }
 
 // ---------------------------------------------------------------- trip summary & picking list
@@ -487,7 +617,7 @@ export async function getTripSummaries() {
       name,
       createdAt,
       orders: live.length,
-      toDispatch: mine.filter((o) => o.status === "placed").length,
+      toDispatch: mine.filter((o) => OPEN_STATUSES.includes(o.status)).length,
       dispatched: mine.filter((o) => o.status === "dispatched").length,
       cancelled: mine.length - live.length,
       customers: new Set(live.map((o) => o.retailer_id)).size,
@@ -515,21 +645,26 @@ export async function getPickingList(trip?: string) {
   let q = c
     .from("order_items")
     .select(
-      "code_snapshot, name_snapshot, product_id, sizes, sets, pcs, orders!inner(ref, status, trip_id), products(product_images(id, position))",
+      "code_snapshot, name_snapshot, product_id, sizes, sets, dispatched_sets, orders!inner(ref, status, trip_id), products(product_images(id, position))",
     )
-    .eq("orders.status", "placed");
+    .in("orders.status", OPEN_STATUSES);
   if (trip === "none") q = q.is("orders.trip_id", null);
   else if (trip && z.uuid().safeParse(trip).success) q = q.eq("orders.trip_id", trip);
-  const rows = must(await q, "picking") as unknown as {
+  const all = must(await q, "picking") as unknown as {
     code_snapshot: string;
     name_snapshot: string;
     product_id: string | null;
     sizes: string[];
     sets: number;
-    pcs: number;
+    dispatched_sets: number;
     orders: { ref: string };
     products: { product_images: { id: string; position: number }[] } | null;
   }[];
+  // Only what is still to send: a part-dispatched line counts its remaining sets.
+  const rows = all
+    .map((r) => ({ ...r, sets: r.sets - r.dispatched_sets }))
+    .filter((r) => r.sets > 0)
+    .map((r) => ({ ...r, pcs: r.sets * r.sizes.length }));
 
   const sizeOrder = (
     must(await c.from("sizes").select("label").order("sort_order"), "sizes") as { label: string }[]
@@ -584,7 +719,9 @@ export async function exportOrderRows(f: OrderFilters) {
     ? (must(
         await db()
           .from("order_items")
-          .select("order_id, position, code_snapshot, name_snapshot, rate_paise_snapshot, sizes, sets, pcs")
+          .select(
+            "order_id, position, code_snapshot, name_snapshot, rate_paise_snapshot, sizes, sets, pcs, dispatched_sets",
+          )
           .in("order_id", ids),
         "lines",
       ) as {
@@ -596,6 +733,7 @@ export async function exportOrderRows(f: OrderFilters) {
         sizes: string[];
         sets: number;
         pcs: number;
+        dispatched_sets: number;
       }[])
     : [];
   const byOrder = new Map<string, typeof lines>();
@@ -618,7 +756,8 @@ export async function exportOrderRows(f: OrderFilters) {
       "pcs",
       "rate_rupees",
       "amount_rupees",
-      "dispatched_on",
+      "sets_sent",
+      "last_dispatched_on",
     ],
     ...items.flatMap((o) =>
       (byOrder.get(o.id) ?? [])
@@ -639,6 +778,7 @@ export async function exportOrderRows(f: OrderFilters) {
           l.pcs,
           l.rate_paise_snapshot / 100,
           (l.rate_paise_snapshot * l.pcs) / 100,
+          l.dispatched_sets,
           o.dispatchedAt ?? "",
         ]),
     ),

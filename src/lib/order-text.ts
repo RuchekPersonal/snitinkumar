@@ -3,6 +3,7 @@ import { site } from "./site";
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   placed: "To dispatch",
+  partial: "Part dispatched",
   dispatched: "Dispatched",
   cancelled: "Cancelled",
 };

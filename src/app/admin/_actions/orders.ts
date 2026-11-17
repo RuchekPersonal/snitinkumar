@@ -7,9 +7,11 @@ import {
   createOrder,
   createTrip,
   DispatchInput,
-  markDispatched,
+  dispatchOrder,
+  getRepeatOrder,
   OrderInput,
   reopenOrder,
+  undoDispatch,
   type Trip,
 } from "@/lib/server/admin/orders";
 import { addRetailer, RetailerInput } from "@/lib/server/admin/customers";
@@ -59,10 +61,20 @@ export async function addOrderCustomerAction(
   }
 }
 
-export async function markDispatchedAction(id: string, input: unknown): Promise<Result> {
+export async function dispatchOrderAction(id: string, input: unknown): Promise<Result> {
   const parsed = DispatchInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  return run(() => markDispatched(z.uuid().parse(id), parsed.data));
+  return run(() => dispatchOrder(z.uuid().parse(id), parsed.data));
+}
+
+export async function undoDispatchAction(dispatchId: string): Promise<Result> {
+  return run(() => undoDispatch(z.uuid().parse(dispatchId)));
+}
+
+/** Lines of a past order for "Repeat order"; designs no longer in the store are left out. */
+export async function getRepeatOrderAction(ref: string) {
+  const r = await getRepeatOrder(String(ref).toUpperCase());
+  return r ? { ok: true as const, ...r } : { ok: false as const, error: "Order not found" };
 }
 
 export async function cancelOrderAction(id: string, reason: string): Promise<Result> {

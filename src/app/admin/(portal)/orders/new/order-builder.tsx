@@ -4,7 +4,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { OrderableProduct, OrderCustomer, Trip } from "@/lib/server/admin/orders";
-import { addOrderCustomerAction, createOrderAction, createTripAction } from "@/app/admin/_actions/orders";
+import {
+  addOrderCustomerAction,
+  createOrderAction,
+  createTripAction,
+  getRepeatOrderAction,
+} from "@/app/admin/_actions/orders";
 import { CreatableCombobox } from "@/components/admin/creatable-combobox";
 import { btnPrimary, btnSecondary, Card, input, label } from "@/components/admin/ui";
 import { MinusIcon, PlusIcon, SearchIcon } from "@/components/icons";
@@ -67,6 +72,8 @@ const store = {
 };
 
 const pcsOf = (l: Line) => l.sets * l.sizes.length;
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 const ago = (t: number) => {
   const mins = Math.round((Date.now() - t) / 60_000);
   if (mins < 1) return "just now";
@@ -75,8 +82,36 @@ const ago = (t: number) => {
   return hrs < 24 ? `${hrs} h ago` : `${Math.round(hrs / 24)} d ago`;
 };
 
+/** A past order to copy: its customer and the lines still available in the store. */
+interface Repeat {
+  ref: string;
+  retailerId: string;
+  lines: { productId: string; sizes: string[]; sets: number }[];
+  skipped: number;
+}
+
+function draftFromRepeat(r: Repeat, tripId: string, customers: OrderCustomer[]): Draft {
+  const d = newDraft(tripId);
+  const customer = customers.find((c) => c.id === r.retailerId);
+  d.customerId = customer?.id ?? null;
+  d.transport = customer?.transportPref ?? "";
+  d.lines = Object.fromEntries(r.lines.map((l) => [l.productId, { sizes: l.sizes, sets: l.sets }]));
+  d.added = r.lines.map((l) => l.productId);
+  d.step = !customer ? "customer" : r.lines.length ? "review" : "designs";
+  return d;
+}
+
+const repeatNotice = (r: Repeat) =>
+  `Copied from ${r.ref}.${
+    r.skipped
+      ? ` ${r.skipped} ${r.skipped === 1 ? "design is" : "designs are"} no longer in the store and ${r.skipped === 1 ? "was" : "were"} left out.`
+      : ""
+  } Check the sizes and sets, then place the order.`;
+
 interface Props {
   adminId: string;
+  /** Set when opened from "Repeat order" on a past order. */
+  repeat: Repeat | null;
   customers: OrderCustomer[];
   trips: Trip[];
   products: OrderableProduct[];
@@ -91,6 +126,7 @@ export function OrderBuilder(props: Props) {
   const [d, setD] = useState<Draft>(() => newDraft());
   const [ready, setReady] = useState(false); // draft read from the device
   const [restored, setRestored] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [customers, setCustomers] = useState(props.customers);
   const [trips, setTrips] = useState(props.trips);
   const [error, setError] = useState<string | null>(null);
@@ -104,16 +140,23 @@ export function OrderBuilder(props: Props) {
     const saved = store.get<Draft>(draftKey);
     const tripId = store.get<string>(tripKey) ?? "";
     const knownTrip = props.trips.some((t) => t.id === tripId) ? tripId : "";
-    if (saved?.v === 1 && (saved.customerId || saved.added.length)) {
+    const unfinished = saved?.v === 1 && saved.added.some((id) => (saved.lines[id]?.sets ?? 0) > 0);
+    if (props.repeat && (!unfinished || confirm(`Replace your unfinished order with a copy of ${props.repeat.ref}?`))) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time setup from the URL
+      setD(draftFromRepeat(props.repeat, knownTrip, props.customers));
+      setNotice(repeatNotice(props.repeat));
+      router.replace("/admin/orders/new", { scroll: false }); // a refresh keeps the draft, not the copy
+    } else if (saved?.v === 1 && (saved.customerId || saved.added.length)) {
       const customerOk = props.customers.some((c) => c.id === saved.customerId);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of device storage
       setD({ ...saved, customerId: customerOk ? saved.customerId : null, step: customerOk ? saved.step : "customer" });
       setRestored(saved.savedAt);
     } else {
       setD(newDraft(knownTrip));
     }
     setReady(true);
-  }, [draftKey, tripKey, props.customers, props.trips]);
+    // Runs once on open; later changes to these props must not reset the order in progress.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (ready) store.set(draftKey, d);
@@ -159,7 +202,19 @@ export function OrderBuilder(props: Props) {
     store.remove(draftKey);
     setD(newDraft(d.tripId));
     setRestored(null);
+    setNotice(null);
     setError(null);
+  }
+
+  async function repeatFrom(ref: string) {
+    if (ordered.length && !confirm(`Replace the designs in this order with the ones from ${ref}?`)) return;
+    setError(null);
+    const r = await getRepeatOrderAction(ref).catch(() => null);
+    if (!r?.ok) return setError(r ? r.error : "Couldn't reach the server. Try again.");
+    setD((cur) => ({ ...draftFromRepeat(r, cur.tripId, customers), token: cur.token }));
+    setRestored(null);
+    setNotice(repeatNotice(r));
+    topRef.current?.scrollIntoView({ block: "start" });
   }
 
   async function submit() {
@@ -205,6 +260,18 @@ export function OrderBuilder(props: Props) {
         </div>
       )}
 
+      {notice && (
+        <div
+          role="status"
+          className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-[#2f4a7a]/30 bg-[#dfe7f5] px-4 py-3 text-[14px] text-[#2f4a7a]"
+        >
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)} aria-label="Dismiss" className="font-bold">
+            ×
+          </button>
+        </div>
+      )}
+
       {d.step === "customer" && (
         <CustomerStep
           customers={customers}
@@ -226,6 +293,7 @@ export function OrderBuilder(props: Props) {
             update({ customerId: c.id, transport: d.transport || c.transportPref });
           }}
           onNext={() => go("designs")}
+          onRepeat={repeatFrom}
         />
       )}
 
@@ -354,6 +422,7 @@ function CustomerStep(props: {
   onCreateTrip: (name: string) => Promise<{ ok: true; option: Trip } | { ok: false; error: string }>;
   onCustomer: (c: OrderCustomer) => void;
   onNext: () => void;
+  onRepeat: (ref: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
@@ -389,6 +458,7 @@ function CustomerStep(props: {
       mobile: f.mobile,
       transportPref: "",
       status: "approved",
+      lastOrder: null,
     });
     setF(EMPTY_CUSTOMER);
     setAdding(false);
@@ -418,13 +488,28 @@ function CustomerStep(props: {
       <Card title="Customer">
         <div className="p-5">
           {selected && (
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-maroon bg-maroon-50 p-3">
-              <span className="text-[14px]">
-                <b>{selected.shopName}</b> — {selected.ownerName}, {selected.city}
-              </span>
-              <button onClick={props.onNext} className={btnPrimary}>
-                Choose designs →
-              </button>
+            <div className="mb-4 rounded-lg border border-maroon bg-maroon-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[14px]">
+                  <b>{selected.shopName}</b> — {selected.ownerName}, {selected.city}
+                </span>
+                <span className="flex flex-wrap gap-2">
+                  {selected.lastOrder && (
+                    <button onClick={() => props.onRepeat(selected.lastOrder!.ref)} className={btnSecondary}>
+                      Repeat last order
+                    </button>
+                  )}
+                  <button onClick={props.onNext} className={btnPrimary}>
+                    Choose designs →
+                  </button>
+                </span>
+              </div>
+              {selected.lastOrder && (
+                <p className="mt-1.5 text-[13px] text-muted">
+                  Last order {selected.lastOrder.ref} on {shortDate(selected.lastOrder.createdAt)} ·{" "}
+                  {selected.lastOrder.designs} {selected.lastOrder.designs === 1 ? "design" : "designs"}
+                </p>
+              )}
             </div>
           )}
 
@@ -458,7 +543,8 @@ function CustomerStep(props: {
                     <button
                       onClick={() => {
                         props.onCustomer(c);
-                        props.onNext();
+                        // Regular customers stay here so their last order can be repeated.
+                        if (!c.lastOrder) props.onNext();
                       }}
                       aria-pressed={c.id === props.customerId}
                       className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[14px] hover:bg-cream/60 ${
@@ -469,6 +555,7 @@ function CustomerStep(props: {
                         <b className="block truncate">{c.shopName}</b>
                         <span className="block truncate text-muted">
                           {c.ownerName} · {c.city} · {c.mobile.replace(/^\+91/, "")}
+                          {c.lastOrder && ` · last order ${shortDate(c.lastOrder.createdAt)}`}
                         </span>
                       </span>
                       {c.status === "pending" && (

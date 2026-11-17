@@ -5,10 +5,10 @@ import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/server/admin/orders";
 import { rupees } from "@/lib/format";
 import { ORDER_STATUS_LABEL, orderMessage, whatsappLink } from "@/lib/order-text";
-import { Card, PageHeader, StatusChip } from "@/components/admin/ui";
+import { btnSecondary, Card, PageHeader, StatusChip } from "@/components/admin/ui";
 import { WhatsAppIcon } from "@/components/icons";
 import { PrintButton } from "../print-button";
-import { OrderActions } from "./order-actions";
+import { OrderActions, RemoveDispatch } from "./order-actions";
 
 export async function generateMetadata({ params }: PageProps<"/admin/orders/[ref]">): Promise<Metadata> {
   return { title: (await params).ref };
@@ -68,6 +68,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
             >
               <WhatsAppIcon width={18} height={18} /> Send to customer
             </a>
+            <Link href={`/admin/orders/new?repeat=${o.ref}`} className={`${btnSecondary} print:hidden`}>
+              Repeat order
+            </Link>
             <PrintButton />
           </>
         }
@@ -88,7 +91,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
 
       <div className="grid gap-5 [&>*]:min-w-0 xl:grid-cols-[1fr_360px]">
         <Card
-          title={`${o.lines.length} ${o.lines.length === 1 ? "design" : "designs"} · ${o.sets} sets · ${o.pcs} pcs`}
+          title={`${o.lines.length} ${o.lines.length === 1 ? "design" : "designs"} · ${o.sets} sets · ${o.pcs} pcs${
+            o.sentSets > 0 && o.status !== "dispatched" ? ` · ${o.sentSets} sent` : ""
+          }`}
           action={<StatusChip status={o.status} label={ORDER_STATUS_LABEL[o.status]} />}
         >
           <div className="overflow-x-auto">
@@ -98,6 +103,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
                   <th className="px-5 py-3 font-semibold">Design</th>
                   <th className="px-3 py-3 font-semibold">Sizes</th>
                   <th className="px-3 py-3 text-right font-semibold">Sets</th>
+                  <th className="px-3 py-3 text-right font-semibold">Sent</th>
                   <th className="px-3 py-3 text-right font-semibold">Pcs</th>
                   <th className="px-3 py-3 text-right font-semibold">Rate</th>
                   <th className="px-5 py-3 text-right font-semibold">Amount</th>
@@ -133,6 +139,17 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
                     </td>
                     <td className="px-3 py-2.5">{l.sizes.join(" · ")}</td>
                     <td className="px-3 py-2.5 text-right">{l.sets}</td>
+                    <td
+                      className={`px-3 py-2.5 text-right ${
+                        l.sentSets === l.sets
+                          ? "text-chip-ink"
+                          : l.sentSets > 0
+                            ? "font-semibold text-[#2f4a7a]"
+                            : "text-muted"
+                      }`}
+                    >
+                      {l.sentSets === l.sets ? "✓ all" : l.sentSets}
+                    </td>
                     <td className="px-3 py-2.5 text-right">{l.pcs}</td>
                     <td className="px-3 py-2.5 text-right">{rupees(l.ratePaise)}</td>
                     <td className="px-5 py-2.5 text-right font-medium">{rupees(l.ratePaise * l.pcs)}</td>
@@ -145,6 +162,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
                     Total at listed rates
                   </td>
                   <td className="px-3 py-3 text-right">{o.sets}</td>
+                  <td className="px-3 py-3 text-right">{o.sentSets}</td>
                   <td className="px-3 py-3 text-right">{o.pcs}</td>
                   <td />
                   <td className="px-5 py-3 text-right text-[16px]">{rupees(o.valuePaise)}</td>
@@ -189,36 +207,54 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/ad
                 </dd>
                 <dt className="text-muted">Transport</dt>
                 <dd>{o.transport || "—"}</dd>
-                {o.status === "dispatched" && o.dispatch.date && (
-                  <>
-                    <dt className="text-muted">Dispatched</dt>
-                    <dd>
-                      {day(o.dispatch.date)}
-                      {o.dispatch.transport && ` · ${o.dispatch.transport}`}
-                      {o.dispatch.lr && (
-                        <span className="block">
-                          LR <b>{o.dispatch.lr}</b>
-                        </span>
-                      )}
-                    </dd>
-                  </>
-                )}
               </dl>
               {o.note && (
                 <p className="rounded-md bg-gold-50 p-3">
                   <b>Note:</b> {o.note}
                 </p>
               )}
-              <OrderActions id={o.id} status={o.status} transport={o.transport} />
+              <OrderActions id={o.id} status={o.status} transport={o.transport} lines={o.lines} />
             </div>
           </Card>
+
+          {o.dispatches.length > 0 && (
+            <Card title={o.dispatches.length === 1 ? "Dispatch" : `${o.dispatches.length} dispatches`}>
+              <ol className="divide-y divide-line text-[14px]">
+                {o.dispatches.map((d, i) => (
+                  <li key={d.id} className="px-5 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p>
+                        <b>
+                          {o.dispatches.length > 1 && `${i + 1}. `}
+                          {day(d.on)}
+                        </b>
+                        {d.transport && ` · ${d.transport}`}
+                        {d.lr && (
+                          <span className="block">
+                            LR <b>{d.lr}</b>
+                          </span>
+                        )}
+                      </p>
+                      <RemoveDispatch id={d.id} label={day(d.on)} />
+                    </div>
+                    <p className="mt-1 text-[13px] text-muted">
+                      {d.items.map((it) => `${it.code} × ${it.sets}`).join(", ")}
+                      {d.by && ` · by ${d.by}`}
+                    </p>
+                    {d.note && <p className="mt-1 text-[13px]">{d.note}</p>}
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          )}
 
           {o.events.length > 0 && (
             <Card title="History" className="print:hidden">
               <ul className="space-y-1.5 p-5 text-[13px] text-muted">
                 {o.events.map((e, i) => (
                   <li key={i}>
-                    {when(e.created_at)} — {e.from_status ? `${ORDER_STATUS_LABEL[e.from_status]} → ` : ""}
+                    {when(e.created_at)} —{" "}
+                    {e.from_status && e.from_status !== e.to_status ? `${ORDER_STATUS_LABEL[e.from_status]} → ` : ""}
                     <b className="text-ink">{e.from_status ? ORDER_STATUS_LABEL[e.to_status] : "Placed"}</b>
                     {e.admins && ` by ${e.admins.name}`}
                     {e.note && ` · ${e.note}`}
