@@ -7,7 +7,7 @@ export const site = {
   whatsappNumber: "918866238147", // wa.me format: country code + number, no "+"
   helplineDisplay: "+91 88662 38147",
   helplineTel: "+918866238147",
-  email: "imruchekshah@gmail.com",
+  email: "snitinkumar@gmail.com",
   address: "Textile Market, Ring Road, Ahmedabad, Gujarat", // placeholder
   hours: "Mon–Sat 10am–7pm",
   newArrivalDays: 14,
