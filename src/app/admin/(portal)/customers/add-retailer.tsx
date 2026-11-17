@@ -53,7 +53,7 @@ export function AddRetailer() {
           <form onSubmit={submit} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-lg bg-surface p-6">
             <h2 className="font-serif text-2xl">Add retailer</h2>
             <p className="mt-1 text-[13px] text-muted">
-              Added retailers are approved straight away and can log in with this mobile number.
+              Saved straight away as an approved customer, ready for orders.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {field("shopName", "Shop name", { required: true })}

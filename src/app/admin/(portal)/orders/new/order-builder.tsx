@@ -582,7 +582,7 @@ function CustomerStep(props: {
           ) : (
             <form onSubmit={addCustomer}>
               <p className="text-[14px] text-muted">
-                New customers are approved straight away and can log in to the store with this mobile number.
+                Saved straight away as an approved customer and selected for this order.
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {field("shopName", "Shop name", { required: true, autoFocus: true })}
